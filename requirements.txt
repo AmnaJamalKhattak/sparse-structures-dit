@@ -1,0 +1,19 @@
+# Union of what the notebooks install, with the notebooks' own version constraints. The exact
+# versions used for the paper's runs are not pinned here.
+torch
+diffusers>=0.36
+transformers>=4.56
+accelerate
+safetensors
+sentencepiece
+protobuf
+huggingface_hub
+numpy
+pandas
+pyarrow
+fsspec
+scipy
+matplotlib
+pillow
+lpips
+pytest

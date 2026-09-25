@@ -991,7 +991,7 @@ def fig_spatial_token_maps(result, layer: int, prompt_id: int = 0, seed: Optiona
 
     im = axes[i].imshow(norms.numpy().reshape(gh, gw), cmap="magma")
     axes[i].set_title("Post-block token norm")
-    st.colorbar(fig, im, axes[i], r"Token norm $\|x_t\|_2$", fraction=0.05, pad=0.03)
+    st.colorbar(fig, im, axes[i], "Norm Value", fraction=0.05, pad=0.03)
 
     for ax in axes:
         ax.set_xticks([]); ax.set_yticks([])
