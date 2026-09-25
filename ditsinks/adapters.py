@@ -22,9 +22,46 @@ PixArt  28 blocks, each with attn1 (image self-attention -- where sinks live)
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import torch
+
+
+class InterventionPoint(str, Enum):
+    """Stable, architecture-aware names for causal intervention sites."""
+
+    BLOCK_INPUT = "block_input"
+    BLOCK_OUTPUT = "block_output"
+    PRE_MLP_RESIDUAL = "pre_mlp_residual"
+    MLP_HIDDEN = "mlp_hidden"
+    ADALN_MODULATION = "adaln_modulation"
+    PRE_KEY_NORM_RESIDUAL = "pre_key_norm_residual"
+    KEY_PRE_POSITION = "key_pre_position"
+    FINAL_KEY = "final_key"
+    WRITER_RESIDUAL = "writer_residual"
+    # The tensor the image self-attention module is CALLED with -- after the adaptive
+    # norm, after its scale/shift, and after any block-level positional embedding.
+    # Distinct from PRE_KEY_NORM_RESIDUAL, which is the norm MODULE's output and is the
+    # same tensor only where the modulation lives inside that module. It does on FLUX
+    # (AdaLayerNormZero applies scale and shift itself) and it does NOT on PixArt, whose
+    # BasicTransformerBlock computes `norm1(x) * (1 + scale_msa) + shift_msa` in the
+    # block body. Anything asking what the computation actually received must use this.
+    ATTENTION_INPUT = "attention_input"
+
+
+@dataclass(frozen=True)
+class HookCapability:
+    point: InterventionPoint
+    supported: bool
+    module_path: Optional[str] = None
+    representation: str = ""
+    reason: str = ""
+
+    def require(self) -> "HookCapability":
+        if not self.supported:
+            raise NotImplementedError(f"{self.point.value} is unsupported: {self.reason}")
+        return self
 
 
 @dataclass
@@ -46,6 +83,55 @@ class ModelAdapter:
     stage_notes: Dict[str, str] = {}
     # Which attention role carries image->image attention.
     image_attn_role = "attn"
+
+    def intervention_capabilities(self, ref: LayerRef) -> Dict[InterventionPoint, HookCapability]:
+        """Describe only sites that exist as clean module boundaries.
+
+        Missing/fused stages are deliberately reported as unsupported: callers must
+        never substitute a nearby tensor and call it the requested representation.
+        """
+        b = ref.block
+        caps = {
+            p: HookCapability(p, False, reason="not exposed as a separable module by this architecture")
+            for p in InterventionPoint
+        }
+        caps[InterventionPoint.BLOCK_INPUT] = HookCapability(InterventionPoint.BLOCK_INPUT, True, "", "block forward input")
+        caps[InterventionPoint.BLOCK_OUTPUT] = HookCapability(InterventionPoint.BLOCK_OUTPUT, True, "", "block forward output")
+        caps[InterventionPoint.FINAL_KEY] = HookCapability(InterventionPoint.FINAL_KEY, True, representation="key passed unchanged to the native attention kernel")
+        # Attribute names follow diffusers; checking the instance makes this
+        # checkpoint/version aware rather than merely family aware.
+        for point, names, rep in (
+            (InterventionPoint.MLP_HIDDEN, ("ff", "mlp"), "feed-forward module output (architecture-equivalent MLP activation)"),
+            (InterventionPoint.PRE_KEY_NORM_RESIDUAL, ("norm1",),
+             "output of the normalisation MODULE -- equal to what the QKV projection "
+             "receives only where the adaptive scale/shift is applied inside it"),
+            (InterventionPoint.ATTENTION_INPUT, ("attn", "attn1"),
+             "the tensor the image self-attention is called with: what its QKV "
+             "projection actually receives"),
+        ):
+            name = next((n for n in names if getattr(b, n, None) is not None), None)
+            if name:
+                caps[point] = HookCapability(point, True, name, rep)
+        return caps
+
+    def intervention_capability(self, ref: LayerRef, point: InterventionPoint) -> HookCapability:
+        """Return (and allow callers to ``require``) one checkpoint-aware capability."""
+        return self.intervention_capabilities(ref)[InterventionPoint(point)]
+
+    def intervention_module(self, ref: LayerRef, point: InterventionPoint):
+        """Resolve the exact module boundary advertised for ``point``."""
+        cap = self.intervention_capability(ref, point).require()
+        if point in (InterventionPoint.BLOCK_INPUT, InterventionPoint.BLOCK_OUTPUT):
+            return ref.block
+        obj = ref.block
+        if not cap.module_path:
+            raise NotImplementedError(
+                f"{point.value} is observable only inside the attention dispatcher; "
+                "use AttentionTap rather than a module hook"
+            )
+        for component in cap.module_path.split("."):
+            obj = getattr(obj, component)
+        return obj
 
     # ---------------------------------------------------------------- loading
     def load_pipeline(self, spec, cfg):
@@ -129,6 +215,79 @@ class Flux1Adapter(ModelAdapter):
             refs.append(LayerRef(index=len(refs), kind="single", local_id=i, block=blk, attns={"attn": blk.attn}))
         return refs
 
+    @staticmethod
+    def _advertise(caps, block, point: InterventionPoint, attr: str, representation: str) -> None:
+        """Advertise a point at ``attr``, but only when that module is really there.
+
+        The block kind decides which *name* to look for; the instance decides
+        whether it exists.  Reporting a point unsupported because we looked under
+        the wrong name would be a claim about the architecture, not about this
+        checkpoint, so a genuine absence says which module was missing.
+        """
+        if getattr(block, attr, None) is not None:
+            caps[point] = HookCapability(point, True, attr, representation)
+        else:
+            caps[point] = HookCapability(
+                point, False,
+                reason=f"this block exposes no {attr!r} module, which is where "
+                       f"{point.value} lives in this architecture")
+
+    def intervention_capabilities(self, ref: LayerRef) -> Dict[InterventionPoint, HookCapability]:
+        """Name each site by block kind, because FLUX.1 has two block layouts.
+
+        The base class finds these by attribute name, which is checkpoint-aware
+        but assumes one layout.  A FLUX.1 *single* block computes the same
+        quantities under different names -- its adaptive norm is ``norm`` rather
+        than ``norm1``, and its feed-forward is ``proj_mlp`` into ``act_mlp``
+        rather than ``ff`` -- so a name-only probe misses them and reports the
+        architecture as incapable of something it does perfectly well.  Only
+        ``pre_mlp_residual`` is genuinely absent there, and it says why.
+        """
+        caps = super().intervention_capabilities(ref)
+        block = ref.block
+        if ref.kind == "dual":
+            self._advertise(caps, block, InterventionPoint.MLP_HIDDEN, "ff",
+                            "feed-forward hidden activation, inside the image feed-forward stack")
+            self._advertise(caps, block, InterventionPoint.ADALN_MODULATION, "norm1",
+                            "adaptive-norm output: the normalised stream and five timestep gates")
+            self._advertise(caps, block, InterventionPoint.PRE_KEY_NORM_RESIDUAL, "norm1",
+                            "normalised residual supplied to the QKV projection")
+            self._advertise(caps, block, InterventionPoint.PRE_MLP_RESIDUAL, "norm2",
+                            "norm2 input: post-attention image residual before feed-forward")
+            self._advertise(caps, block, InterventionPoint.WRITER_RESIDUAL, "attn",
+                            "projected attention contribution, BEFORE the gate_msa scaling and before the "
+                            "residual addition")
+        else:
+            self._advertise(caps, block, InterventionPoint.MLP_HIDDEN, "act_mlp",
+                            "feed-forward hidden activation, after proj_mlp and its nonlinearity; "
+                            "text tokens lead the sequence and the width is the expanded one")
+            self._advertise(caps, block, InterventionPoint.ADALN_MODULATION, "norm",
+                            "adaptive-norm output: the normalised stream and one shared gate, "
+                            "a single block having no separate feed-forward gate")
+            self._advertise(caps, block, InterventionPoint.PRE_KEY_NORM_RESIDUAL, "norm",
+                            "normalised stream supplied to the QKV projection, shared with the "
+                            "feed-forward branch; text tokens lead the sequence")
+            self._advertise(caps, block, InterventionPoint.WRITER_RESIDUAL, "proj_out",
+                            "fused attention and feed-forward writer contribution, BEFORE the gate scaling "
+                            "and before the residual addition; text tokens lead the sequence")
+            # The one that really is absent: both branches read the same normalised
+            # stream and are concatenated before a single proj_out, so no tensor in
+            # the block is "after attention and before the feed-forward".
+            caps[InterventionPoint.PRE_MLP_RESIDUAL] = HookCapability(
+                InterventionPoint.PRE_MLP_RESIDUAL, False,
+                reason="FLUX.1 single blocks feed attention and the feed-forward from one "
+                       "normalised stream and concatenate them before a single proj_out, so "
+                       "there is no post-attention stage before the feed-forward to read")
+        # RoPE is applied by a function call inside the attention processor, between
+        # the key norm and the attention dispatch, so no module's input or output
+        # ever holds the key before position is applied.
+        caps[InterventionPoint.KEY_PRE_POSITION] = HookCapability(
+            InterventionPoint.KEY_PRE_POSITION, False,
+            reason="RoPE is applied inside the attention processor rather than at a module "
+                   "boundary, so the key before positional encoding is never a module's "
+                   "input or output")
+        return caps
+
     def call_kwargs(self, cfg, spec) -> Dict[str, Any]:
         kw = dict(
             height=cfg.height,
@@ -173,6 +332,37 @@ class PixArtAdapter(ModelAdapter):
                 attns["cross"] = blk.attn2
             refs.append(LayerRef(index=i, kind="block", local_id=i, block=blk, attns=attns))
         return refs
+
+    def intervention_capabilities(self, ref: LayerRef) -> Dict[InterventionPoint, HookCapability]:
+        caps = super().intervention_capabilities(ref)
+        caps[InterventionPoint.ADALN_MODULATION] = HookCapability(
+            InterventionPoint.ADALN_MODULATION, False,
+            reason="PixArt computes scale/shift/gates inline from timestep; no separable module output")
+        caps[InterventionPoint.PRE_MLP_RESIDUAL] = HookCapability(InterventionPoint.PRE_MLP_RESIDUAL, True, "norm2", "residual after self/cross attention, before feed-forward")
+        caps[InterventionPoint.WRITER_RESIDUAL] = HookCapability(
+            InterventionPoint.WRITER_RESIDUAL, True, "ff",
+            "feed-forward contribution, BEFORE the gate_mlp scaling and before the "
+            "residual addition")
+        caps[InterventionPoint.KEY_PRE_POSITION] = HookCapability(InterventionPoint.KEY_PRE_POSITION, True, "attn1.to_k", "self-attention key projection; PixArt has no image-key RoPE")
+        # PixArt's norm1 is a PLAIN LayerNorm and the adaptive modulation is applied in
+        # the block body, not inside it:
+        #     norm_hidden_states = self.norm1(hidden_states)
+        #     norm_hidden_states = norm_hidden_states * (1 + scale_msa) + shift_msa
+        #     attn_output = self.attn1(norm_hidden_states, ...)
+        # so norm1's output is NOT the tensor the QKV projection receives -- a per-channel
+        # scale stands between them, and a per-channel scale is not a rotation, so it
+        # changes each token's alignment with a direction differently. Anything measuring
+        # what the computation received must use ATTENTION_INPUT. FLUX does not have this
+        # gap: AdaLayerNormZero applies its scale and shift itself.
+        caps[InterventionPoint.PRE_KEY_NORM_RESIDUAL] = HookCapability(
+            InterventionPoint.PRE_KEY_NORM_RESIDUAL, True, "norm1",
+            "LayerNorm output BEFORE the adaptive scale and shift, which PixArt applies "
+            "in the block body; this is NOT what the QKV projection receives")
+        caps[InterventionPoint.ATTENTION_INPUT] = HookCapability(
+            InterventionPoint.ATTENTION_INPUT, True, "attn1",
+            "the tensor attn1 is called with: modulated, and what its QKV projection "
+            "actually receives")
+        return caps
 
     def num_image_tokens(self, transformer_kwargs, cfg) -> Optional[int]:
         # PixArt's transformer takes unpatchified latents [B, C, H, W].

@@ -25,21 +25,112 @@ the image cannot be attributed to the registers rather than to editing anything.
 from __future__ import annotations
 
 import json
+import hashlib
 import zlib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
 
-from .adapters import LayerRef, get_adapter, image_slice
+from .adapters import InterventionPoint, LayerRef, get_adapter, image_slice
 from .capture import SweepCapture, _to_float
 from .config import SweepConfig
 
 
 # --------------------------------------------------------------- conditions
+
+@dataclass(frozen=True, order=True)
+class TensorAddress:
+    """Complete coordinate of a captured activation (no cross-run guessing)."""
+    prompt: int
+    seed: int
+    step: int
+    layer: int
+    point: InterventionPoint
+    token: Optional[int] = None
+    head: Optional[int] = None
+
+
+class CleanTensorStore:
+    """CPU-backed clean-run activations indexed by experimental coordinates."""
+    def __init__(self):
+        self._values: Dict[TensorAddress, torch.Tensor] = {}
+
+    def capture(self, address: TensorAddress, tensor: torch.Tensor) -> None:
+        if address in self._values:
+            raise KeyError(f"duplicate clean tensor: {address}")
+        self._values[address] = tensor.detach().to("cpu").clone()
+
+    def get(self, address: TensorAddress, *, like: Optional[torch.Tensor] = None) -> torch.Tensor:
+        try:
+            value = self._values[address]
+        except KeyError:
+            raise KeyError(f"no exactly matched clean tensor for {address}") from None
+        return value.to(device=like.device, dtype=like.dtype) if like is not None else value.clone()
+
+
+@dataclass(frozen=True)
+class RunIdentity:
+    """Inputs that must match between clean and intervened trajectories."""
+    noise_digest: str
+    scheduler_digest: str
+    prompt_encoding_digest: str
+    generation_settings: Tuple[Tuple[str, str], ...]
+
+    @staticmethod
+    def _digest(value: Any) -> str:
+        if torch.is_tensor(value):
+            value = value.detach().contiguous().cpu()
+            payload = ((str(value.dtype) + repr(tuple(value.shape))).encode()
+                       + value.view(torch.uint8).numpy().tobytes())
+        else:
+            payload = json.dumps(value, sort_keys=True, default=str).encode()
+        return hashlib.sha256(payload).hexdigest()
+
+    @classmethod
+    def from_run(cls, noise: torch.Tensor, scheduler_state: Mapping[str, Any],
+                 prompt_encoding: Any, generation_settings: Mapping[str, Any]) -> "RunIdentity":
+        """Fingerprint actual run inputs before either trajectory is executed."""
+        return cls(cls._digest(noise), cls._digest(scheduler_state),
+                   cls._digest(prompt_encoding),
+                   tuple(sorted((str(k), json.dumps(v, sort_keys=True, default=str))
+                                for k, v in generation_settings.items())))
+
+    def assert_matches(self, other: "RunIdentity") -> None:
+        if self != other:
+            differing = [f for f in self.__dataclass_fields__ if getattr(self, f) != getattr(other, f)]
+            raise ValueError("clean/intervened run mismatch: " + ", ".join(differing))
+
+
+class FinalKeyIntervention:
+    """Patch selected image keys only; AttentionTap still invokes the native kernel."""
+    def __init__(self, store: CleanTensorStore, address: TensorAddress, image_tokens: slice,
+                 tokens: Sequence[int], heads: Optional[Sequence[int]] = None):
+        if address.point != InterventionPoint.FINAL_KEY:
+            raise ValueError("FinalKeyIntervention requires a FINAL_KEY address")
+        self.store, self.address, self.image_tokens = store, address, image_tokens
+        self.tokens, self.heads = tuple(tokens), None if heads is None else tuple(heads)
+
+    def __call__(self, query, key, value, kwargs):
+        out = key.clone()
+        # Both supported layouts place head and sequence in dimensions 1/2.
+        head_dim = 1 if key.shape[1] <= key.shape[2] else 2
+        seq_dim = 2 if head_dim == 1 else 1
+        for token in self.tokens:
+            pos = (self.image_tokens.start or 0) + token
+            for head in (self.heads if self.heads is not None else range(key.shape[head_dim])):
+                addr = TensorAddress(self.address.prompt, self.address.seed, self.address.step,
+                                     self.address.layer, self.address.point, token, head)
+                clean = self.store.get(addr, like=key)
+                idx = [slice(None)] * key.ndim
+                idx[head_dim], idx[seq_dim] = head, pos
+                out[tuple(idx)] = clean
+        return out
+
+
 @dataclass(frozen=True)
 class Condition:
     key: str

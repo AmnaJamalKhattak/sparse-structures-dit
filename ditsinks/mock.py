@@ -11,9 +11,11 @@ fake weights. Use that one to test the capture code.
 """
 from __future__ import annotations
 
+import math
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
+import pandas as pd
 import torch
 
 from .capture import LayerRecord
@@ -211,3 +213,261 @@ def _mock_attn_map(rng, n_heads, n_img, n_txt, reg_ids, sink_env, target=128):
         m[h, :, : max(boundary, 1)] += 0.9 / p               # text/padding sink band
         m[h] /= m[h].sum(axis=1, keepdims=True)
     return torch.tensor(m, dtype=torch.float32), boundary, cell
+
+
+# ---------------------------------------------------------------- causal mock
+CAUSAL_MOCK_BANNER = ("MOCK CAUSAL RESULT - shapes, figures and statistics only. "
+                      "These numbers are invented and support no claim.")
+
+
+def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: int = 20,
+                               last_layer: int = 40, rng_seed: int = 0):
+    """Q1--Q6 result bundles with the structure of a real run, but invented numbers.
+
+    Two uses: render and check every causal figure without a GPU, and let a reader
+    see the shape of the answer before spending compute.  The effect sizes below
+    are drawn from what the workshop paper already reports, so the mock looks like
+    a plausible result rather than noise -- which is exactly why it must never be
+    mistaken for one.  Every returned bundle is tagged in ``meta['mock']``.
+    """
+    from .questions import (Q1_CONDITIONS, Q2_TARGET_LABELS, Q5_POSITION_LABELS, Q5_STAGES,
+                            Q6_CONDITIONS, QuestionResult, _q1_verdict, _q2_verdict, _q3_verdict,
+                            _q4_verdict, _q5_verdict, _q6_verdict)
+
+    rng = np.random.default_rng(rng_seed)
+    layers = list(range(first_layer, last_layer + 1, 2))
+    units = [(p, s) for p in range(prompts) for s in range(seeds)]
+    noise = lambda scale=0.03: float(rng.normal(0, scale))
+
+    # ---- Q1 -----------------------------------------------------------------
+    retention = {"sham": 0.95, "direction_removal": 0.24, "matched_ordinary_state": 0.19,
+                 "ordinary_norm_clamp": 0.86, "state_zeroed": 0.12,
+                 "random_tokens_zeroed": 0.93, "norm_matched_tokens_zeroed": 0.90,
+                 "offregister_direction_removal": 0.91,
+                 "normmatched_direction_removal": 0.88}
+    projection = {"sham": 0.0, "direction_removal": -2.4, "matched_ordinary_state": -2.6,
+                  "ordinary_norm_clamp": -0.3, "state_zeroed": -3.1,
+                  "random_tokens_zeroed": -0.1, "norm_matched_tokens_zeroed": -0.15,
+                  "offregister_direction_removal": -0.2,
+                  "normmatched_direction_removal": -0.25}
+    fate_mix = {"sham": ("same_position", 0.95), "direction_removal": ("relocated", 0.62),
+                "matched_ordinary_state": ("relocated", 0.55),
+                "ordinary_norm_clamp": ("same_position", 0.88),
+                "state_zeroed": ("diffuse", 0.66), "random_tokens_zeroed": ("same_position", 0.94),
+                "norm_matched_tokens_zeroed": ("same_position", 0.92),
+                "offregister_direction_removal": ("same_position", 0.9),
+                "normmatched_direction_removal": ("same_position", 0.87)}
+    # (alignment, norm ratio) relative to a clean register, so each condition lands
+    # in the quadrant that describes what it actually did.
+    geometry = {'sham': (0.94, 6.2), 'direction_removal': (0.06, 6.1),
+                'matched_ordinary_state': (0.11, 1.0), 'ordinary_norm_clamp': (0.93, 1.0),
+                'state_zeroed': (0.03, 0.1), 'random_tokens_zeroed': (0.92, 6.1),
+                'norm_matched_tokens_zeroed': (0.91, 6.0),
+                'offregister_direction_removal': (0.93, 6.1),
+                'normmatched_direction_removal': (0.90, 6.0)}
+    rows, fates = [], []
+    for condition in Q1_CONDITIONS:
+        for prompt_id, seed in units:
+            offset = rng.normal(0, 0.04)
+            leading, share = fate_mix[condition.key]
+            fate = leading if rng.random() < share else str(rng.choice(
+                [f for f in ("same_position", "relocated", "reserve_takeover", "diffuse", "none")
+                 if f != leading]))
+            fates.append(dict(question="q1", condition=condition.key,
+                              condition_label=condition.label, role=condition.role,
+                              selection_rule="percentile", prompt_id=prompt_id, seed=seed,
+                              fate=fate, recovery_kind="same_position" if fate == "same_position"
+                              else ("relocated" if fate == "relocated" else "none"),
+                              first_recovery_layer=float(rng.choice(layers)) if fate != "none" else None,
+                              head_retention=retention[condition.key] + offset))
+            for layer in layers:
+                decay = (layer - first_layer) / max(last_layer - first_layer, 1)
+                rows.append(dict(question="q1", condition=condition.key,
+                                 condition_label=condition.label, role=condition.role,
+                                 edit=condition.edit, token_group=condition.group,
+                                 selection_rule="percentile", prompt_id=prompt_id, seed=seed,
+                                 layer=layer, head=-1, fate=fate,
+                                 head_retention=float(np.clip(retention[condition.key] + offset
+                                                              + 0.1 * decay + noise(), 0, 1)),
+                                 sink_retention_all=float(np.clip(retention[condition.key] + offset, 0, 1)),
+                                 affected_heads=12,
+                                 attention_concentration=float(np.clip(
+                                     0.34 * (0.4 + 0.6 * retention[condition.key]) + noise(0.01), 0, 1)),
+                                 vstar_projection_change=projection[condition.key] * (1 - 0.35 * decay)
+                                 + noise(0.12),
+                                 max_cosine=float(np.clip(0.92 * retention[condition.key] + 0.05
+                                                          + noise(0.02), 0, 1)),
+                                 cosine=geometry[condition.key][0] + noise(0.015),
+                                 target_norm_ratio=geometry[condition.key][1] + noise(0.05)))
+    q1 = QuestionResult("q1", pd.DataFrame(rows), {"fates": pd.DataFrame(fates)})
+    q1.verdict = _q1_verdict(q1.tables["fates"], q1.tidy)
+
+    # ---- Q2 -----------------------------------------------------------------
+    dose_rows = []
+    for target in Q2_TARGET_LABELS:
+        gammas = ([0.0, 0.1, 0.25, 0.5, 0.75, 1.0, 1.5] if target == "dominant_channel" else [0.0])
+        strength = {"dominant_channel": -2.5, "competing_channel": -0.35,
+                    "unspecific_channel": -0.2, "random_channel": -0.05,
+                    "matched_energy_direction": -0.4, "ordinary_positions": -0.08}[target]
+        for gamma in gammas:
+            for scope in ("writer_only", "maintenance"):
+                factor = 1.0 if scope == "writer_only" else 1.4
+                for prompt_id, seed in units:
+                    change = strength * factor * (1.0 - gamma) + rng.normal(0, 0.12)
+                    dose_rows.append(dict(
+                        question="q2", condition=f"{target}__gamma{gamma:g}__{scope}",
+                        gamma=gamma, scope=scope, control=target,
+                        control_label=Q2_TARGET_LABELS[target], prompt_id=prompt_id, seed=seed,
+                        vstar_projection_change=change, immediate_vstar_change=change * 1.2,
+                        original_sink_retained=float(np.clip(0.22 + 0.72 * min(gamma, 1.0)
+                                                             + noise(0.03), 0, 1)),
+                        key_rank=float(np.clip(1 + 40 * (1 - min(gamma, 1.0)), 1, 60)),
+                        query_key_advantage=0.42 * min(gamma, 1.0) + noise(0.02),
+                        channel_takeover=0.3 + 0.5 * (1 - min(gamma, 1.0))))
+    q2 = QuestionResult("q2", pd.DataFrame(dose_rows), {"dose_response": pd.DataFrame(dose_rows)})
+    q2.verdict = _q2_verdict(q2.tables["dose_response"])
+
+    # ---- Q3 -----------------------------------------------------------------
+    q3_rows, recovery_rows = [], []
+    schedules = {"single_shot": ("same_position", 0.58), "repeated": ("none", 0.7)}
+    for scope, (leading, share) in schedules.items():
+        for prompt_id, seed in units:
+            kind = leading if rng.random() < share else str(rng.choice(
+                [k for k in ("same_position", "relocated", "none") if k != leading]))
+            first = float(rng.choice(layers[1:6])) if kind != "none" else None
+            recovery_rows.append(dict(question="q3", condition=f"direction_destroyed__{scope}",
+                                      role="intervention", scope=scope, prompt_id=prompt_id,
+                                      seed=seed, recovery_kind=kind, first_recovery_layer=first,
+                                      recovered_at_original_position=kind == "same_position"))
+            for layer in layers:
+                progress = (layer - first_layer) / max(last_layer - first_layer, 1)
+                recovered = kind != "none" and first is not None and layer >= first
+                q3_rows.append(dict(question="q3", condition=f"direction_destroyed__{scope}",
+                                    condition_label=f"Direction destroyed, {scope.replace('_', ' ')}",
+                                    role="intervention", scope=scope, prompt_id=prompt_id,
+                                    seed=seed, layer=layer, head=-1, recovery_kind=kind,
+                                    first_recovery_layer=first,
+                                    max_cosine=float(np.clip((0.72 if recovered else 0.2)
+                                                             + 0.1 * progress + noise(0.03), 0, 1)),
+                                    head_retention=float(np.clip(0.2 + 0.5 * recovered + noise(), 0, 1))))
+    q3 = QuestionResult("q3", pd.DataFrame(q3_rows), {"recovery": pd.DataFrame(recovery_rows)})
+    q3.verdict = _q3_verdict(q3.tables["recovery"])
+
+    # ---- Q4 -----------------------------------------------------------------
+    features = {"pre_mlp_residual": ("Pre-feed-forward residual", 0.46, -0.41, 0.86),
+                "feedforward_activation": ("Feed-forward hidden activation", 0.31, -0.28, 0.79),
+                "modulated_stream": ("Timestep-modulated normalised stream", 0.05, -0.03, 0.52),
+                "preexisting_direction": ("Pre-existing register-direction component", 0.18,
+                                          -0.15, 0.68)}
+    patch_rows, separation_rows = [], []
+    endpoints = {"capture_rate": "Becomes the attention sink",
+                 "dominant_channel_value": "Dominant-channel magnitude",
+                 "cosine": "Alignment with register direction"}
+    for key, (label, transfer, prevent, auc) in features.items():
+        for prompt_id, seed in units:
+            separation_rows.append(dict(question="q4", feature=key, feature_label=label,
+                                        supported=True, prompt_id=prompt_id, seed=seed,
+                                        separation=float(np.clip(auc + noise(0.03), 0, 1)),
+                                        token_dependence=0.8 if key != "modulated_stream" else 0.02,
+                                        reason=""))
+            for endpoint, endpoint_label in endpoints.items():
+                scale = 1.0 if endpoint == "capture_rate" else 2.2
+                for direction, effect in (("register_to_ordinary", transfer),
+                                          ("ordinary_to_register", prevent)):
+                    patch_rows.append(dict(
+                        question="q4", patch=key, patch_label=label, direction=direction,
+                        direction_label=("Transfer into an ordinary token"
+                                         if direction == "register_to_ordinary"
+                                         else "Prevent at an eventual register"),
+                        endpoint=endpoint, endpoint_label=endpoint_label, prompt_id=prompt_id,
+                        seed=seed, effect=effect * scale + noise(0.04)))
+    q4 = QuestionResult("q4", pd.DataFrame(patch_rows),
+                        {"patch_effects": pd.DataFrame(patch_rows),
+                         "separation": pd.DataFrame(separation_rows)})
+    q4.verdict = _q4_verdict(q4.tables["patch_effects"], q4.tables["separation"], {})
+
+    # ---- Q5 -----------------------------------------------------------------
+    rates = {"direction_at_ordinary_norm": 0.09, "direction_at_register_norm": 0.17,
+             "full_residual_state": 0.38, "normalised_residual_state": 0.58,
+             "key_before_position": float("nan"), "final_key": 0.84}
+    ladder_rows = []
+    for stage in Q5_STAGES:
+        supported = not math.isnan(rates[stage.key])
+        for position, factor in (("natural_register", 1.0), ("adjacent_patch", 0.72),
+                                 ("random_ordinary", 0.55)):
+            # Once the final key itself is transplanted, position stops mattering --
+            # which is the whole point of the last rung, so the mock reflects it.
+            factor = 0.97 if stage.key == "final_key" else factor
+            for prompt_id, seed in units:
+                base = rates[stage.key]
+                value = float("nan") if math.isnan(base) else float(
+                    np.clip(base * factor + noise(0.03), 0, 1))
+                # The repaired Q5 schema: an exact-recipient clean baseline
+                # (`matched_clean_rate`) is what a single-token transplant can be
+                # compared against, while the any-register rate is context only --
+                # they have different numerators and mixing them was the audit's
+                # critical Q5 finding. `temporal_endpoint` separates the operation
+                # itself from later-layer persistence.
+                for transfer_mode in (("self_patch",) if position == "natural_register"
+                                      else ("copy", "move")):
+                    ladder_rows.append(dict(
+                        question="q5", stage=stage.key, stage_label=stage.label,
+                        position=position, position_label=Q5_POSITION_LABELS[position],
+                        transfer_mode=transfer_mode, temporal_endpoint="same_operation",
+                        prompt_id=prompt_id, seed=seed, supported=supported,
+                        reason="" if supported else
+                        "not a separable module boundary in this architecture",
+                        capture_rate=value,
+                        matched_clean_rate=float(np.clip(0.18 + noise(0.02), 0, 1)),
+                        any_register_clean_rate=float(np.clip(0.88 + noise(0.02), 0, 1))))
+    q5 = QuestionResult("q5", pd.DataFrame(ladder_rows), {})
+    q5.verdict = _q5_verdict(q5.tidy, {s.key: (not math.isnan(rates[s.key]),
+                                               "" if not math.isnan(rates[s.key]) else
+                                               "not exposed as a separable module")
+                                       for s in Q5_STAGES})
+
+    # ---- Q6 -----------------------------------------------------------------
+    shifts = {"sham": 0.0, "competing_channel_suppressed": 2.6,
+              "competing_channel_amplified_early": -1.9, "direction_refreshed": 0.7,
+              "random_channel_suppressed": 0.1, "matched_energy_removed": 0.2}
+    q6_rows, lifetime_rows, trajectory_rows = [], [], []
+    for condition in (("clean", "Clean run", "clean"),) + tuple(
+            (c.key, c.label, c.role) for c in Q6_CONDITIONS):
+        key, label, role = condition
+        for prompt_id, seed in units:
+            shift = shifts.get(key, 0.0) + noise(0.4)
+            if key != "clean":
+                lifetime_rows.append(dict(question="q6", condition=key, condition_label=label,
+                                          role=role, prompt_id=prompt_id, seed=seed,
+                                          clean_lifetime=last_layer - 6,
+                                          register_lifetime=last_layer - 6 + shift,
+                                          lifetime_shift=shift, half_life_shift=shift * 0.8))
+            for layer in layers:
+                progress = (layer - first_layer) / max(last_layer - first_layer, 1)
+                survival = math.exp(-3.0 * max(progress - 0.15 - 0.05 * shifts.get(key, 0.0), 0))
+                trajectory_rows.append(dict(
+                    question="q6", condition=key, condition_label=label, prompt_id=prompt_id,
+                    seed=seed, layer=layer, alpha=42.0 * survival + noise(0.5),
+                    perpendicular_norm=11.0 + 6.0 * progress + noise(0.4),
+                    cosine=float(np.clip(0.93 * survival + noise(0.02), 0, 1)),
+                    dominant_channel=38.0 * survival + noise(0.5),
+                    competing_channel=6.0 + 26.0 * progress * (0.3 if key ==
+                                                               "competing_channel_suppressed" else 1.0),
+                    sink_strength=float(np.clip(0.55 * survival + noise(0.02), 0, 1)),
+                    angular_velocity=0.04 * progress + noise(0.005)))
+                if key != "clean":
+                    q6_rows.append(dict(question="q6", condition=key, condition_label=label,
+                                        role=role, prompt_id=prompt_id, seed=seed, layer=layer,
+                                        head=-1, lifetime_shift=shift,
+                                        alpha=42.0 * survival, perpendicular_norm=11.0 + 6.0 * progress,
+                                        sink_retention=float(np.clip(0.55 * survival + noise(0.02), 0, 1)),
+                                        head_retention=float(np.clip(0.55 * survival + noise(0.02), 0, 1))))
+    q6 = QuestionResult("q6", pd.DataFrame(q6_rows),
+                        {"lifetime": pd.DataFrame(lifetime_rows),
+                         "trajectory": pd.DataFrame(trajectory_rows)})
+    q6.verdict = _q6_verdict(q6.tables["lifetime"])
+
+    results = {"q1": q1, "q2": q2, "q3": q3, "q4": q4, "q5": q5, "q6": q6}
+    for result in results.values():
+        result.meta = {"mock": True, "banner": CAUSAL_MOCK_BANNER}
+    return results
