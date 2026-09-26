@@ -148,7 +148,7 @@ def test_notebook_runs_and_exports_automatically(tmp_path, monkeypatch):
         lambda cfg, destination: exports.append(destination),
     )
     namespace = {
-        "REPO_DIR": "/content/massive-activations-fig3",
+        "REPO_DIR": "/content/channel_studies",
         "USE_DRIVE": True,
         "DRIVE_ROOT": "/content/drive/MyDrive/Research/MA",
         "torch": SimpleNamespace(
@@ -181,7 +181,7 @@ def test_notebook_failed_run_stays_unfinished(monkeypatch):
 
     monkeypatch.setattr("src.experiments.q9_colab.run_experiment", fail)
     namespace = {
-        "REPO_DIR": "/content/massive-activations-fig3",
+        "REPO_DIR": "/content/channel_studies",
         "USE_DRIVE": False,
         "DRIVE_ROOT": "/content/local",
         "Q9_MODEL": "flux-schnell",

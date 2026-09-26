@@ -20,7 +20,7 @@ reproduction of the channel-mask localization baseline of Turri et al. (arXiv:26
 - `scripts/`: the localization pipeline shell wrapper.
 - `tests/`: the pytest suite.
 - `Figure3_Colab.ipynb`: a Colab notebook that runs every study with a GPU runtime. Copy
-  this folder (`channel_studies/`) to `/content/massive-activations-fig3` before running its
+  this folder (`channel_studies/`) to `/content/channel_studies` before running its
   setup cell.
 
 ## Install

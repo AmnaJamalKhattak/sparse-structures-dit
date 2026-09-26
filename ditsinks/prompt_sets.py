@@ -249,7 +249,7 @@ def fetch_viewer_rows(pool: int = 1000) -> Tuple[List[Dict[str, Any]], str]:
 
 def _get_json(url: str, **params) -> Dict[str, Any]:
     request = Request(f"{url}?{urlencode(params)}", headers={
-        "User-Agent": "sparse-structures-dit/reproducibility", "Accept": "application/json"})
+        "User-Agent": "ditsinks/reproducibility", "Accept": "application/json"})
     with urlopen(request, timeout=60) as response:
         return json.load(response)
 

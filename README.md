@@ -22,7 +22,7 @@ the causal work.
 
 Every notebook in `notebooks/` uses the `ditsinks` package for capture hooks, metrics,
 interventions and figures. Each notebook is meant to run in Colab on a GPU. Copy this
-repository to `/content/sparse-structures-dit-colab` (the notebooks that set `CLONE_DIR`)
+repository to `/content/ditsinks-code` (the notebooks that set `CLONE_DIR`)
 or open the notebook from the repository root; the setup cell then installs its own
 dependencies. Results are written to Google Drive so a later session can pick up where an
 earlier one left off.
