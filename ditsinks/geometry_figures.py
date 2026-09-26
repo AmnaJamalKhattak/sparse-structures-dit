@@ -1,24 +1,21 @@
-r"""Presentation-quality 3D figures of the *measured* residual-stream geometry.
+r"""3D figures of the measured residual-stream geometry.
 
 Every point in every figure here is a real inner product of a real token activation with
-a real basis vector.  No schematic, no illustrative coordinates, no decorative geometry.
+a real basis vector. No schematic, no illustrative coordinates, no decorative geometry.
 
-Three things make a 3D projection honest rather than merely pretty, and all three appear
-on the figures themselves:
+Each figure states three things about its projection:
 
-1. **The basis is named.**  Not "a 3D view" but exactly which three directions, and how
-   the third one was fitted.
-2. **The retained energy is stated.**  ``captured_fraction`` is the share of a token's
-   squared norm the three axes keep.  Three axes out of three thousand can be a faithful
-   summary or a shadow, and the number is what tells a reader which.
-3. **Degeneracies are announced.**  Where ``v*`` is nearly the dominant channel, axis 2
-   spans a vanishingly thin slice, and a flat spread there means "nothing to see" rather
-   than "the channel does not matter".
+1. **The basis.** Which three directions are drawn, and how the third one was fitted.
+2. **The retained energy.** ``captured_fraction`` is the share of a token's squared norm
+   the three axes keep. Three axes out of a few thousand can be a faithful summary or a
+   shadow, and the number tells a reader which.
+3. **Degeneracies.** Where ``v*`` is nearly the dominant channel, axis 2 spans a
+   vanishingly thin slice, and a flat spread there means "nothing to see" rather than
+   "the channel does not matter".
 
-The visual language is deliberately spare: white panes, no wire cage, one thin axis line
-per direction with an arrowhead, ordinary tokens as a faint translucent haze, the
-population of interest as saturated opaque points.  The aim is that the eye finds the
-structure before it finds the chrome.
+The visual language is spare: white panes, no wire cage, one thin axis line per
+direction with an arrowhead, ordinary tokens as a faint translucent haze, the
+population of interest as saturated opaque points.
 """
 from __future__ import annotations
 
@@ -37,9 +34,9 @@ from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from . import style as st
 from .geometry import CATEGORY_LABELS, Basis, GeometrySnapshot, token_table
 
-# Okabe-Ito again, so a token category keeps one identity across every figure in the
-# project. Ordinary tokens are deliberately grey and faint: they are the backdrop the
-# population of interest is read against, not a series competing for attention.
+# Okabe-Ito again, so a token category keeps one identity across every figure. Ordinary
+# tokens are grey and faint: they are the backdrop the population of interest is read
+# against, not a series competing for attention.
 CATEGORY_STYLE: Dict[str, Dict[str, Any]] = {
     "ordinary": dict(color="#9aa0a6", size=5.0, alpha=0.20, zorder=2, edge="none"),
     "highnorm_nonsink": dict(color=st.OKABE_ITO["blue"], size=42.0, alpha=0.92, zorder=4,
@@ -58,9 +55,9 @@ def _clean_3d(ax, labels: Sequence[str], *, ticks: int = 4,
     """Strip the default 3D chrome down to three labelled directions.
 
     Matplotlib's 3D default is a wire cage with shaded panes, which reads as a box the
-    data sits inside. The data does not sit inside anything -- it is a projection -- so
-    the panes go, the grid drops to the faintest line that still gives depth, and the
-    tick count comes down to the few values a reader needs for scale.
+    data sits inside. The data is a projection, not a box, so the panes go, the grid
+    drops to the faintest line that still gives depth, and the tick count comes down to
+    the few values a reader needs for scale.
     """
     ax.set_facecolor("white")
     for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
@@ -143,7 +140,7 @@ def _arrow(ax, start, end, *, color: str, label: str = "", lw: float = 2.0,
 
 
 def _basis_note(basis: Basis, captured: np.ndarray) -> str:
-    """The honesty line printed on the figure, not only in the caption."""
+    """The basis and retained-energy line printed on the figure, not only in the caption."""
     pieces = [f"3D projection of {int(basis.vectors.shape[1])}-d activations"
               f"  ·  {basis.kind} basis",
               f"axes retain {100 * float(np.median(captured)):.0f}% of a median token's "
@@ -208,14 +205,14 @@ def fig_token_cloud(snapshot: GeometrySnapshot, path=None, *, elev: float = 19.0
                     arrow_scale: float = 0.85, figsize=(8.6, 7.0)):
     """The measured token population in the interpretable basis.
 
-    Axis 1 is ``v*`` itself, so a token's horizontal coordinate *is* its projection
-    :math:`\\alpha_i = x_i^\\top v^*` -- not a proxy for it. Axis 2 is what the dominant
+    Axis 1 is ``v*`` itself, so a token's horizontal coordinate is its projection
+    :math:`\\alpha_i = x_i^\\top v^*`, not a proxy for it. Axis 2 is what the dominant
     channel carries beyond ``v*``, and axis 3 is the loudest remaining variation in this
     layer's own tokens.
 
-    The eye should find three things: a dense grey core of ordinary tokens near the
-    origin, a spur of high-norm tokens extending along axis 1, and the sinks sitting at
-    the far end of that spur rather than scattered through it.
+    A dense grey core of ordinary tokens sits near the origin, a spur of high-norm
+    tokens extends along axis 1, and the sinks sit at the far end of that spur rather
+    than scattered through it.
     """
     coordinates = snapshot.coordinates
     tokens = snapshot.tokens
@@ -290,13 +287,13 @@ def fig_token_decomposition(snapshot: GeometrySnapshot, path=None, *,
                             elev: float = 20.0, azim: float = -60.0):
     r"""$x_i = \alpha_i v^* + r_i$, drawn for one token of each kind, with no loss.
 
-    Each panel uses a basis built *for that token*: axes 1 and 2 stay the interpretable
-    pair -- $\hat v^*$ and the orthogonalised dominant channel -- and axis 3 is whatever
-    is left of this particular token after those two. The token therefore lies exactly in
+    Each panel uses a basis built for that token: axes 1 and 2 stay the interpretable
+    pair ($\hat v^*$ and the orthogonalised dominant channel), and axis 3 is whatever is
+    left of this particular token after those two. The token therefore lies exactly in
     the drawn subspace, so every arrow has its true length and the printed norms are the
-    plotted ones. A shared basis would have been wrong here: most of an individual
-    residual falls outside any three fixed directions, and the $r_i$ leg would be drawn
-    shorter than it is.
+    plotted ones. A shared basis would not work here: most of an individual residual
+    falls outside any three fixed directions, and the $r_i$ leg would be drawn shorter
+    than it is.
 
     The price, stated on the figure, is that axis 3 differs between panels. That is the
     right trade for a decomposition: the quantity of interest is the split *within* a
@@ -332,8 +329,8 @@ def fig_token_decomposition(snapshot: GeometrySnapshot, path=None, *,
                label=r"$r_i$", label_offset=1.06, fontsize=9.0)
         _arrow(ax, (0, 0, 0), tuple(point), color=st.INK, lw=1.6, head=0.09,
                label=r"$x_i$", label_offset=1.14, fontsize=9.0)
-        # Guide lines closing the triangle, so the right angle is visible rather than
-        # asserted -- the two legs are orthogonal because the basis is orthonormal.
+        # Guide lines closing the triangle, so the right angle is visible: the two legs
+        # are orthogonal because the basis is orthonormal.
         ax.plot(*zip(np.zeros(3), point), color=st.GRID, lw=0.0)
         corner = np.array([alpha, point[1], 0.0])
         for a, b in ((parallel, corner), (corner, point)):
@@ -472,9 +469,9 @@ def fig_lifecycle_strip(snapshots: Sequence[GeometrySnapshot], path=None, *,
 
     Every frame uses the same basis and, by default, the same axis limits, which is what
     makes the sequence a comparison rather than a slideshow: a cloud that appears to grow
-    is growing, not being rescaled. Watch for three transitions -- tokens moving out along
-    axis 1, the extreme members acquiring sink markers, and the spur collapsing back
-    toward the core.
+    is growing, not being rescaled. Three transitions to look for: tokens moving out
+    along axis 1, the extreme members acquiring sink markers, and the spur collapsing
+    back toward the core.
     """
     if not len(snapshots):
         raise ValueError("cannot draw the lifecycle strip: no snapshots")
@@ -543,9 +540,9 @@ def write_lifecycle_animation(snapshots: Sequence[GeometrySnapshot], path, *,
                               dpi: int = 110) -> Dict[str, Any]:
     """A GIF of the lifecycle, and the per-frame PNGs whether or not the GIF works.
 
-    Frames are written first and unconditionally.  Animation writers are the most
-    environment-dependent part of matplotlib, and a fragile GIF must not be able to cost
-    a run its figures -- so the frames are the deliverable and the GIF is a convenience.
+    Frames are written first and unconditionally. Animation writers are the most
+    environment-dependent part of matplotlib, so the frames are the deliverable and the
+    GIF is a convenience.
     """
     path = Path(path)
     frames_dir = path.parent / f"{path.stem}_frames"
@@ -604,16 +601,15 @@ def write_lifecycle_animation(snapshots: Sequence[GeometrySnapshot], path, *,
             "n_frames": len(written)}
 
 
-# ======================================================= 4. the honesty panel
+# ============================================= 4. basis diagnostics panel
 def fig_basis_diagnostics(snapshots: Sequence[GeometrySnapshot], path=None):
     """What the 3D views are and are not entitled to claim.
 
-    Three panels, in the order a sceptical reader asks them. (a) How much of each token
-    actually survives the projection, by category -- the number that decides whether the
-    cloud is a summary or a shadow. (b) How much of $v^*$ *is* the dominant channel,
-    which bounds any claim that axis 1 is about geometry rather than about one coordinate.
-    (c) How the retained share varies with depth, since a projection can be faithful at
-    one layer and thin at another.
+    Three panels. (a) How much of each token actually survives the projection, by
+    category: the number that decides whether the cloud is a summary or a shadow.
+    (b) How much of $v^*$ is the dominant channel, which bounds any claim that axis 1 is
+    about geometry rather than about one coordinate. (c) How the retained share varies
+    with depth, since a projection can be faithful at one layer and thin at another.
     """
     if not len(snapshots):
         raise ValueError("cannot draw the basis diagnostics: no snapshots")

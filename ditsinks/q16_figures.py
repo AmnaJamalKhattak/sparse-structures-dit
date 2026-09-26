@@ -1,11 +1,11 @@
-"""Paper figures for the Q16 main run.
+"""Paper figures for the register-retiming main run.
 
 Every figure is drawn from the pooled unit records (:func:`ditsinks.q16_main.collect_units`)
 and the frozen :class:`~ditsinks.q16_main.DepthProtocol` of each checkpoint, in the
 repository's publication style (:mod:`ditsinks.style`). Conventions shared by all of them:
 
-- **Colour means the model** in every panel -- FLUX.1-dev blue, PixArt-Sigma vermillion
-  (Okabe-Ito; validated for colour-vision deficiency on the adjacent and all-pairs lists).
+- **Colour means the model** in every panel: FLUX.1-dev blue, PixArt-Sigma vermillion
+  (Okabe-Ito, validated for colour-vision deficiency on the adjacent and all-pairs lists).
   The unmodified run is gray, and the natural register interval is a light gray band.
 - **Intervals are 95% percentile bootstrap intervals clustered by prompt**: a prompt's
   seeds share its layout and register positions, so prompts are resampled whole.

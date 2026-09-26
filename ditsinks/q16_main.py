@@ -1,4 +1,4 @@
-"""Q16 main run: the depth at which the register state exists, and what it does to the image.
+"""Register retiming main run: the depth at which the register state exists, and what it does to the image.
 
 The experiment
 --------------
@@ -8,8 +8,8 @@ against the unit's own unmodified generation. Prompts are the cluster for infere
 prompt's seeds share its layout and its register positions, and are resampled together.
 
 The manipulated variable is the interval of transformer depth over which the natural
-register state exists -- the sparse set of high-norm, ``v*``-aligned image tokens that act
-as attention sinks. It is set in three ways, all during the same denoising steps:
+register state exists (the sparse set of high-norm, ``v*``-aligned image tokens that act
+as attention sinks). It is set in three ways, all during the same denoising steps:
 
 - **Depth sweep, natural register retained.** The register state is written into one window
   of blocks at a time, at the natural register's own positions and with its own ``v*``
@@ -85,7 +85,7 @@ FORMAL_METRIC_NAMES = {
 class MainSettings:
     """Every value the main run uses, declared before any generation.
 
-    The basis for each value is in ``experiments/q16_lifecycle_retiming/PARAMETERS.md``.
+    The basis for each value is in ``docs/register_retiming/parameters.md``.
     The shared definitions (``highnorm_ratio``, ``alignment_quantile``,
     ``sink_threshold``) are the ones every other table of the paper uses; the range check
     (:func:`ditsinks.lifecycle.threshold_sensitivity`) is run on every unit.
@@ -1252,7 +1252,7 @@ def late_state_table(pooled: Mapping[str, Any], protocols: Mapping[str, DepthPro
     register (an early write at the register positions) can leave a surplus that outlives
     the natural end, and a late write or an extension puts the state there directly, into
     blocks that never hold a register in an unmodified run. This table says, for every
-    condition, whether that happened -- read from the lifecycle records, at the readout
+    condition, whether that happened, read from the lifecycle records, at the readout
     step (or ``step``), at the positions each condition edits (the non-register control's
     own positions for that control; the register positions otherwise).
 

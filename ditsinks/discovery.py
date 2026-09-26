@@ -1,6 +1,6 @@
 """Checkpoint-scoped discovery records for confirmatory mechanism experiments.
 
-Discovery is deliberately separated from intervention code.  Channel and layer
+Discovery is kept separate from intervention code.  Channel and layer
 choices are made from an observational discovery sweep, written to an immutable
 manifest, and subsequently *loaded* by confirmatory runs.  This prevents a
 failed expected reproduction from silently becoming a post-outcome selection.
@@ -184,7 +184,7 @@ def create_discovery_artifact(
     # Prompts are the held-out axis: reusing one would let a layer, channel or
     # threshold chosen on it be "confirmed" on the same generation.  Seeds are
     # not.  A seed only fixes the initial noise, so the same seed under a
-    # different prompt is an entirely different generation and leaks nothing --
+    # different prompt is an entirely different generation and leaks nothing,
     # and forcing seeds apart would halve the seeds available to each phase for
     # no statistical gain.  Overlapping seeds are therefore allowed, but only
     # because the prompts above are already guaranteed disjoint.

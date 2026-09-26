@@ -225,7 +225,7 @@ class InterventionConfig:
 
 
 def suggest_intervention_layer(result) -> int:
-    """The layer just after high-norm tokens first appear -- where editing them can still matter."""
+    """The layer just after high-norm tokens first appear, where editing them can still matter."""
     from .metrics import highnorm_mask
 
     first = None
@@ -536,7 +536,7 @@ def sink_persistence(results: Dict[str, Any], reference: str = "instrumentation_
                      ) -> pd.DataFrame:
     """Does each head keep sinking on the same token after the edit?
 
-    Restricted to the heads that were actually affected -- those whose reference
+    Restricted to the heads that were actually affected: those whose reference
     sink was one of the tokens the register ablation edits. A head that never
     sank on an edited token tells us nothing about the edit.
     """

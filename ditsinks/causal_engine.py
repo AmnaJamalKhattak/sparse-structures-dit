@@ -1,8 +1,8 @@
-"""Execution engine for the ICLR Section-3 causal questions.
+"""Execution engine for the causal questions.
 
 The observational sweep (``ditsinks.capture``) answers *where* the register
 phenomena live.  This module answers *what happens when we change them*, and it
-is built around three rules that the ICLR plan makes non-negotiable.
+is built around three rules the causal experiments require.
 
 **Targets are frozen.**  Every intervention edits token identities chosen from a
 clean run of the *same* prompt and seed.  Nothing is ever re-selected from a
@@ -19,7 +19,7 @@ through :class:`ditsinks.adapters.HookCapability`; an architecture that fuses a
 stage away reports it unsupported rather than letting a caller silently patch a
 neighbouring tensor and label it something it is not.
 
-The engine records, per observed layer, everything the six questions need: the
+The engine records, per observed layer, everything the causal experiments need: the
 projection of every image token on the frozen direction, token norms, the values
 of the frozen channels, the per-head incoming image-to-image attention, and the
 cosine between each image key and the mean image query.
@@ -89,8 +89,8 @@ def image_span(tensor: torch.Tensor, n_img: Optional[int], n_txt: int = 0) -> Op
     """Where the image tokens sit, or ``None`` when the answer is not certain.
 
     A sequence qualifies only when its length is exactly the image-token count or
-    exactly image+text.  Anything else -- a text-only stream, a pooled projection,
-    a hidden width that merely happens to be long enough -- is refused, because
+    exactly image+text.  Anything else (a text-only stream, a pooled projection,
+    a hidden width that merely happens to be long enough) is refused, because
     editing the tail of the wrong tensor would look like a result.
     """
     if not torch.is_tensor(tensor) or tensor.ndim != 3 or not n_img:
@@ -124,13 +124,13 @@ class LayerObservation:
     attention_probs: Optional[torch.Tensor] = None   # [H, N, S] probabilities from captured Q/K
     attention_logits: Optional[torch.Tensor] = None  # [H, N, S] logits from captured Q/K
     values: Optional[torch.Tensor] = None            # [H, N, D] final image values, where asked
-    # Q14 only: attention that left the image for an appended non-spatial register.
+    # Set only when a virtual register is appended: attention that left the image for it.
     virtual_mass: Optional[float] = None
     virtual_mass_per_head: Optional[torch.Tensor] = None     # [H]
     virtual_mass_per_register: Optional[torch.Tensor] = None # [R]
     n_virtual: Optional[int] = None
     # `incoming` is renormalised over the image tokens, so it is exactly invariant to a
-    # virtual register drawing mass proportionally -- and the mass it divides out is the
+    # virtual register drawing mass proportionally, and the mass it divides out is the
     # very thing such a register takes. These two carry the missing scale: the share of
     # the full softmax the image tokens hold, per head, before that renormalisation, and
     # the full key length. With them a sink can be scored against uniform over the whole
@@ -191,7 +191,7 @@ class Trace:
 
 # --------------------------------------------------------------- the tracer
 class CausalTracer:
-    """Record the Q1--Q6 observables at a fixed set of layers and steps."""
+    """Record the causal-experiment observables at a fixed set of layers and steps."""
 
     def __init__(self, adapter: ModelAdapter, transformer, *, direction: torch.Tensor,
                  layers: Sequence[int], steps: Sequence[int],
@@ -213,14 +213,14 @@ class CausalTracer:
         # Keeping the exact keys the kernel saw is what makes a final-key
         # transplant possible: everything after this point is the kernel itself.
         self.key_layers = {int(l) for l in key_layers}
-        # Virtual-register columns appended to the keys and values by a Q14 run. The
-        # tracer has to know the count: the image tokens are the TAIL of the real
-        # sequence, so with R extra columns on the end `image_slice` would either refuse
-        # or silently slice the registers instead of the image. Every readout that
-        # follows -- sinkhood, incoming mass, the qk cosine -- depends on that slice.
+        # Virtual-register columns appended to the keys and values when a run injects
+        # one. The tracer has to know the count: the image tokens are the TAIL of the
+        # real sequence, so with R extra columns on the end `image_slice` would either
+        # refuse or silently slice the registers instead of the image. Every readout
+        # that follows (sinkhood, incoming mass, the qk cosine) depends on that slice.
         self.n_virtual = 0
         # The post-append key length the injector produced for the call in flight. Two
-        # attention taps nest, and whichever patches LAST is outermost -- so a tap that
+        # attention taps nest, and whichever patches LAST is outermost, so a tap that
         # enters after this one appends rows that this one's callback never sees, while
         # `n_virtual` is already set. That combination silently slices the wrong columns.
         # Recording the length the injector actually produced turns it into a refusal.
@@ -253,14 +253,14 @@ class CausalTracer:
         self._tap: Optional[AttentionTap] = None
         # The steps at which edit installers also keep their FULL-TENSOR manipulation
         # checks (x_pre_hook / x_post_hook / x_next_module_input). None keeps them at
-        # every recorded step, which is the historical behaviour. A caller recording many
-        # steps must narrow this: each check is a whole [N, C] slice -- ~50 MB at 1024px
-        # on FLUX -- per hook call, and at every step of every block that is a hundred
+        # every recorded step by default. A caller recording many
+        # steps must narrow this: each check is a whole [N, C] slice (about 50 MB at 1024px
+        # on FLUX) per hook call, and at every step of every block that is a hundred
         # gigabytes of tensors nobody reads.
         self.diagnostic_steps: Optional[set] = None
         # The steps at which the attention readout (incoming mass, sinkhood, the qk
-        # cosine) is also recorded. None records it at every recorded step, the historical
-        # behaviour. The residual-state readout is cheap and runs at every recorded step
+        # cosine) is also recorded. None records it at every recorded step, the default.
+        # The residual-state readout is cheap and runs at every recorded step
         # regardless; the attention readout materialises a [heads, N, N] probability
         # tensor per block, which at 1024px dominates the cost of a traced generation, so
         # a caller that needs states at many steps and attention at a few narrows this.
@@ -532,8 +532,8 @@ class EditPlan:
     steps: Optional[Sequence[int]] = None      # None -> every captured step
     label: str = ""
     # A causal intervention edits the conditional branch, because that is the branch
-    # whose trajectory the paired comparison is about. A *deployment policy* -- an
-    # activation precision allocation, say -- is not a branch-specific edit: on a
+    # whose trajectory the paired comparison is about. A *deployment policy* (an
+    # activation precision allocation, say) is not a branch-specific edit: on a
     # CFG-batched model the unconditional branch runs through the same kernels, so a
     # policy that touched only the conditional row would be half-applied and its image
     # fidelity overstated. Such plans opt in here.
@@ -744,9 +744,9 @@ class StateProbe:
 class FinalKeyPatch:
     """Replace the key of one image token with a clean key, at named layers.
 
-    This is the last rung of the Q5 ladder: after normalisation and any
-    positional operation, at the tensor the attention kernel actually consumes.
-    Only the recipient's key changes -- queries, values, and every other key stay
+    This is the last rung of the residual-to-key transplant ladder: after normalisation
+    and any positional operation, at the tensor the attention kernel actually consumes.
+    Only the recipient's key changes. Queries, values, and every other key stay
     exactly as the treated run produced them.
     """
 
@@ -956,8 +956,8 @@ def select_frozen_targets(trace: Trace, *, layer: int, step: int,
                           highnorm_ratio: float = 3.0) -> FrozenTargets:
     """Choose every token group the six questions need, from clean states only.
 
-    ``register_ids`` is the percentile rule the ICLR plan names first (top 1% by
-    residual norm); ``topk_ids`` is the threshold-free companion it asks for
+    ``register_ids`` is the percentile rule applied first (top 1% by
+    residual norm); ``topk_ids`` is the threshold-free companion applied
     alongside, so no headline claim rests on one percentile.  Four control groups
     are chosen here rather than inside any condition:
 

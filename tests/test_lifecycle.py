@@ -1,4 +1,4 @@
-"""Q16 -- retiming the register lifecycle.
+"""Register retiming: controlling when the register lifecycle happens.
 
 The claims these tests exist to protect: that induction and suppression do what their
 names say, that the suppression used in D, E and F is literally the repository's
@@ -288,7 +288,7 @@ def test_recipient_outlier_anchors_on_what_the_layer_already_holds():
     """Why this mode exists.
 
     At a depth with no registers, 'ratio' and 'absolute' both reproduce the natural
-    population's outlier by construction -- on real FLUX the natural register sits at
+    population's outlier by construction, on real FLUX the natural register sits at
     roughly 100x the median token norm, so every strength multiple came back
     astronomically out of distribution and every criterion passed for arithmetic reasons.
     Anchoring on the recipient layer's own maximum makes a multiple mean something:
@@ -354,11 +354,11 @@ def test_the_baseline_still_reports_a_genuine_carry():
 def test_sinkhood_is_a_population_statistic_not_an_any():
     """Why carrier_is_sink changed meaning.
 
-    With `any`, one carrier out of sixteen clearing the bar satisfies the level -- and at
-    a depth just after dissolution some carriers are ALREADY sinks in the clean run, so
-    an any-based L3 fired at a near-no-op perturbation and reported baseline sinkhood as
-    successful induction. On real schnell it read L3 = x0.06 for the late carriers while
-    the population mean sat at the clean value of 6.97 against a bar of 10.
+    With `any`, one carrier out of sixteen clearing the bar satisfies the level, and at
+    a depth just after dissolution some carriers are already sinks in the clean run, so
+    an any-based rule can read a near-no-op perturbation as successful induction. On real
+    schnell it read x0.06 for the late carriers while the population mean sat at the
+    clean value of 6.97 against a bar of 10.
     """
     n, heads, carriers = 32, 4, [0, 1, 2, 3]
     absolute = torch.full((heads, n), 1.0 / n)
@@ -389,7 +389,7 @@ def _register_scene(n=200, c=64, n_registers=4, seed=0):
 def test_the_conjunction_is_sparse_where_a_percentile_alone_is_not():
     """The property that makes a state-based rule usable instead of a blunt eraser.
 
-    A projection percentile ALWAYS selects its fraction -- at p99 on 200 tokens that is
+    A projection percentile ALWAYS selects its fraction, at p99 on 200 tokens that is
     two tokens at every block whether or not a register exists. Ordinary tokens carry
     weaker v* components, so a percentile-only rule erases the direction from the image
     stream rather than preventing the sparse state. Requiring high norm as well makes the
@@ -429,7 +429,7 @@ def test_rule_selectivity_reports_what_a_rule_would_touch_on_the_clean_run():
 def test_both_modes_use_the_same_norm_preserving_operator():
     """EARLY ONLY, LATE ONLY and SUPPRESSION ONLY only compare if the operator is one.
 
-    The norm-preserving operator is now the SINK-IDENTITY control rather than the
+    The norm-preserving operator is the SINK-IDENTITY control rather than the
     primary, so it is named explicitly; it must still be the validated beta/gamma one.
     """
     from ditsinks.control_surface import control_surface_states
@@ -449,7 +449,7 @@ def test_both_modes_use_the_same_norm_preserving_operator():
 
 
 def test_the_primary_suppression_operator_is_subtractive():
-    """Q16 now removes v* without rescaling the token back to register size."""
+    """The primary suppression operator removes v* without rescaling the token back to register size."""
     x, v, registers = _register_scene()
     out = LC.Suppressor(v, mode="fixed", tokens=registers).edit(x, _Ctx())
     for t in registers:
@@ -591,7 +591,7 @@ def test_an_early_pulse_is_not_called_a_continuous_extension():
 
     Induced at blocks 10-12, gone by 13, and natural formation at 15-18 runs exactly as
     in the clean run. Read absolutely the treated trajectory looks identical to clean in
-    the natural window and large in the induction window -- which is what an early PULSE
+    the natural window and large in the induction window, which is what an early PULSE
     looks like, and calling it a retimed lifecycle would be the central overclaim.
     """
     induction, natural = LC.Window("early", 10, 12), LC.Window("natural", 15, 18)
@@ -651,7 +651,7 @@ def test_the_census_tells_relocation_from_threshold_flicker():
     """Summed per-block counts cannot answer the question; unique positions can.
 
     Both cases below give the SAME cumulative total of 40 token-layer observations. One
-    is ten positions that are high-norm throughout the window -- a genuinely relocated
+    is ten positions that are high-norm throughout the window, a genuinely relocated
     population. The other is forty positions each crossing the bar once, which is the
     threshold flickering and says nothing about relocation.
     """
@@ -908,8 +908,8 @@ def test_the_late_window_can_never_overlap_the_natural_one():
 
 
 def test_extension_bridges_the_natural_decline_without_moving_the_late_window():
-    """Maintenance must start where the state is still present -- the measured
-    dissolution onset -- or extension becomes re-induction after a gap. That is the
+    """Maintenance must start where the state is still present, the measured
+    dissolution onset, or extension becomes re-induction after a gap. That is the
     bridge's job; the late window stays after the natural range."""
     natural, late = LC.Window("natural", 20, 39), LC.Window("late", 40, 42)
     bridge = LC.extension_bridge(natural, late, 35)
@@ -968,7 +968,7 @@ def test_the_verdict_reads_one_step_and_reports_how_many_ran():
     """A schedule firing at every denoising step interleaves N sweeps down the stack.
 
     Without a step filter the next step's first hook is counted as regrowth after the
-    previous step's last, which is not regrowth at all -- it is the schedule starting
+    previous step's last, which is not regrowth at all, it is the schedule starting
     over. And the temporal coverage has to be reported, because an absent image effect
     from a one-step schedule says nothing about the register.
     """
@@ -1142,7 +1142,7 @@ def test_a_block_where_the_clean_register_does_not_stand_out_is_not_scored():
     suppression condition in the first dev pilot read ~1.97 'delivered'."""
     layers = [17, 20]
     clean_probe = _delivery_rows(layers, carrier_cos=0.9)
-    # Block 17: the register is not written yet -- carriers barely above ordinary.
+    # Block 17: the register is not written yet, carriers barely above ordinary.
     clean_probe.rows[(2, 17)] = _delivery_rows([17], carrier_cos=0.21,
                                                ordinary_cos=0.2).rows[(2, 17)]
     clean = LC.delivered_rows(clean_probe, step=2, layers=layers, carriers=[3, 5])
@@ -1187,10 +1187,10 @@ def _register_token(n=32, c=16, seed=0):
 
 
 def test_norm_preserving_removal_keeps_a_register_sized_token_subtractive_does_not():
-    """The operator that produced the first dev pilot's stars.
+    """Norm-preserving and subtractive removal leave different downstream states.
 
     Norm-preserving removal scales the token's remainder up to register magnitude, so it
-    stays a huge-norm token -- now pointing along ordinary content, where later blocks'
+    stays a huge-norm token, now pointing along ordinary content, where later blocks'
     ordinary-sized writes can barely move it. Subtractive removal leaves the token as it
     would be without its v* component: ordinary content at ordinary size.
     """
@@ -1225,7 +1225,7 @@ def test_an_unknown_operator_is_refused():
 
 
 def test_cosine_matched_uses_the_carriers_actual_alignment():
-    """It divided alpha by the MEDIAN norm -- a ratio, 13x on FLUX -- and clamped it to
+    """It divided alpha by the MEDIAN norm, a ratio, 13x on FLUX, and clamped it to
     0.999, so it always resolved to the same target whatever the register looked like."""
     natural_norm = torch.full((16,), 10.0)
     natural_projection = torch.zeros(16)
@@ -1322,7 +1322,7 @@ def test_a_delivery_verdict_from_a_handful_of_blocks_is_refused():
 
 
 def test_fixed_mask_regrowth_is_measured_by_the_rule_not_the_mask_size():
-    """X reported 'rebuilding 24 tokens per block' -- which was just its mask."""
+    """A count of rebuilt tokens must reflect the rule's output, not the mask's fixed size."""
     x, v = _register_token()
     rule = LC.RegisterStateRule(highnorm_ratio=3.0, projection_percentile=90.0)
     fixed = LC.Suppressor(v, mode="fixed", tokens=[4, 7, 9], rule=rule)
@@ -1535,7 +1535,7 @@ def test_register_match_says_when_the_target_is_unusually_large_for_the_recipien
     # The size of the edit on the clean tensor, in the recipient's own units.
     assert row[14]["perturbation_vs_median"] > 10.0
     # Setting the projection alone already brings most of the norm when the natural
-    # register is this aligned -- which is what the twins cannot separate.
+    # register is this aligned, which is what the twins cannot separate.
     assert row[14]["projection_only_norm_ratio"] == pytest.approx(
         ((13.0 ** 2 + (1.0 - 0.04)) ** 0.5 + (11.0 ** 2 + (1.0 - 0.04)) ** 0.5) / 2, rel=1e-4)
 
@@ -1679,7 +1679,7 @@ def test_the_achieved_lifecycle_reports_relative_norm_and_alignment():
     assert row["carrier_cosine"] == pytest.approx(0.95)
 
 
-# ================= Q1/Q4-informed revision: suppression judged by what blocks RECEIVE
+# ================= suppression judged by what blocks receive, not by what was written
 class _StepObs:
     def __init__(self, norm, projection, incoming=None):
         self.norm, self.projection = norm.float(), projection.float()
@@ -1747,7 +1747,7 @@ def test_the_alignment_rule_checks_every_position_without_a_norm_bar():
     chosen = rule.select_from_stats(treated.norm, treated.projection, step=1, layer=21)
     assert {3, 5, 42} <= set(chosen), "a new, still-small aligned token must be caught"
     assert len(chosen) <= 3 + int(0.01 * 400), "ordinary tokens are not erased wholesale"
-    # The old conjunction misses the small one -- exactly the escape route Q1 warns about.
+    # A conjunction of highnorm-ratio and projection-percentile rules misses the small one.
     old = LC.RegisterStateRule(highnorm_ratio=3.0, projection_percentile=99.0)
     assert 42 not in old.select_from_stats(treated.norm, treated.projection)
 
@@ -1830,7 +1830,7 @@ def test_regrowth_and_relocation_are_counted_separately_and_against_paired_clean
     summary = LC.regrowth_relocation_summary(rows, window=LC.Window("s", 20, 21))
     assert summary["outcome"] == "original carriers regain the register criterion"
     assert summary["unique_new_register_positions"] == 1
-    # The clean run's own ordinary tail -- over the removal bar by construction -- is not
+    # The clean run's own ordinary tail, over the removal bar by construction, is not
     # counted as relocation.
     assert set(by[21]["new_aligned_ids"]) == {77}
 
@@ -1855,7 +1855,7 @@ def test_attention_relocation_separates_persistence_from_where_attention_went():
 
 def test_a_head_on_the_clean_register_outside_the_carrier_set_is_not_called_non_register():
     # The clean run's register at this input includes token 9, which the carrier set does
-    # not name -- as happens at a step other than the one the set was read at.
+    # not name, as happens at a step other than the one the set was read at.
     trace = _StepTrace()
     for layer in (20, 21):
         trace.rows[(1, layer)] = _scene(carriers=(3, 5, 9), seed=layer + 10)
@@ -1990,7 +1990,7 @@ def _lifecycle_trace(n_layers=10, formed=(3, 6), carriers=(3, 5, 7), step=0, gro
     After the register has gone, its former carriers are below the high-norm bar (2.5x
     the median against a 3x bar) but still partly aligned. With ``grow`` scaling every
     token's norm with depth, as the residual stream does, their projection then never
-    falls below 10% of its peak -- the FLUX.1-dev situation in which the old rule never
+    falls below 10% of its peak, the FLUX.1-dev situation in which the old rule never
     fires.
     """
     trace = _StepTrace()
@@ -2073,7 +2073,7 @@ def test_the_range_check_moves_one_threshold_at_a_time_on_the_clean_run():
         assert table[("highnorm_ratio", ratio, "formation_block")]["result"] == 3
         assert table[("highnorm_ratio", ratio, "natural_end_block")]["result"] == 6
     # Below the plateau the ratio starts counting the dissolved carriers (2.5x the median)
-    # as registers, and the natural interval no longer ends -- the edge of the plateau.
+    # as registers, and the natural interval no longer ends, the edge of the plateau.
     assert math.isnan(table[("highnorm_ratio", 2.0, "natural_end_block")]["result"])
     # The removal rule still catches every carrier at the chosen quantile, and touches
     # only a sliver of the image.

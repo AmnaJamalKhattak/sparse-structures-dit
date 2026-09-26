@@ -27,7 +27,7 @@ def _context(model, tmp_path, *, n_dual=4, n_single=8, steps=4):
     driver.grid, driver.n_img = driver.bundle.grid, driver.bundle.n_img
     driver.planted = planted_direction(driver.bundle.d_model)
     # v* is FITTED, as discovery fits it on a real checkpoint: the mean direction of the
-    # loudest tokens at the selection block. The planted input direction is not it -- the
+    # loudest tokens at the selection block. The planted input direction is not it, the
     # patch embedding maps it elsewhere.
     probe = CausalTracer(driver.adapter, driver.transformer,
                          direction=torch.ones(driver.bundle.d_model), layers=[5], steps=[0],

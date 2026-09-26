@@ -1,7 +1,7 @@
 """Reproducible prompt sets for the causal experiments.
 
 DiffusionDB is a log of real Stable Diffusion submissions, and its rows are in
-submission order.  Taking the first N rows therefore does not sample N users --
+submission order.  Taking the first N rows therefore does not sample N users:
 it usually samples one person iterating on one idea.  A pilot draw of the first
 twenty rows returned six variants of "a renaissance portrait of <celebrity>, art
 in the style of rembrandt", three of "portrait of a dancing eagle woman", and two
@@ -14,9 +14,9 @@ template lands in both the discovery and confirmation halves, the split stops
 being a split.
 
 This module therefore samples the way the dataset's own documentation
-recommends -- straight from the published ``metadata.parquet``, which carries the
+recommends, straight from the published ``metadata.parquet``, which carries the
 prompt text together with the submitting ``user_name`` and NSFW scores, and never
-touches the image archives -- and then applies four filters that make the
+touches the image archives, and then applies four filters that make the
 resulting set defensible:
 
 ``one prompt per user``      removes the iteration-session effect at its cause;
@@ -118,7 +118,7 @@ def select_diverse_prompts(rows: Sequence[Mapping[str, Any]], count: int, *,
     candidate pool but not on the order the pool happened to arrive in.
 
     Returns the prompts and the policy that produced them, including how many
-    candidates each filter rejected -- which is what tells you whether the pool was
+    candidates each filter rejected, which tells you whether the pool was
     large enough.
     """
     import random
@@ -188,7 +188,7 @@ def fetch_metadata_rows(pool: int = 20000, seed: int = 0,
 
     Row groups are drawn from across the file rather than from its start: the
     table is in submission order, so the opening row group is a handful of users
-    and would reproduce exactly the correlation this module exists to avoid.
+    and would reproduce exactly the correlation this module is meant to avoid.
     """
     import random
 
@@ -224,8 +224,8 @@ def fetch_viewer_rows(pool: int = 1000) -> Tuple[List[Dict[str, Any]], str]:
     """Fallback: read rows through the dataset viewer, discovering its configs.
 
     The viewer's configurations are derived from the files the Hub can see, and
-    they have changed before -- the loading-script names such as ``2m_first_1k``
-    no longer resolve -- so they are asked for rather than assumed.
+    they have changed before (the loading-script names such as ``2m_first_1k``
+    no longer resolve), so they are asked for rather than assumed.
     """
     splits = _get_json(f"{DATASETS_SERVER}/splits", dataset=DIFFUSIONDB_DATASET).get("splits", [])
     for entry in splits:
@@ -249,7 +249,7 @@ def fetch_viewer_rows(pool: int = 1000) -> Tuple[List[Dict[str, Any]], str]:
 
 def _get_json(url: str, **params) -> Dict[str, Any]:
     request = Request(f"{url}?{urlencode(params)}", headers={
-        "User-Agent": "sparse-structures-dit/ICLR-reproducibility", "Accept": "application/json"})
+        "User-Agent": "sparse-structures-dit/reproducibility", "Accept": "application/json"})
     with urlopen(request, timeout=60) as response:
         return json.load(response)
 
@@ -270,7 +270,7 @@ def diffusiondb_prompts(cache_path, count: int, *, seed: int = 0, pool: int = 20
     A complete cache is preferred and makes later runs offline; an undersized one
     is redrawn rather than silently returning fewer prompts.  ``strict`` re-checks
     a cache written by an older, order-based selection and refuses it, so a stale
-    manifest of near-duplicates cannot quietly become the prompt set of a paper.
+    manifest of near-duplicates cannot quietly become the prompt set of an experiment.
     """
     if isinstance(count, bool) or not isinstance(count, int) or count < 1:
         raise ValueError("count must be a positive integer")

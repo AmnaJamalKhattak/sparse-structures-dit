@@ -1,4 +1,4 @@
-"""Tensor-level building blocks and readouts for the ICLR Q1--Q6 experiments.
+"""Tensor-level building blocks and readouts for the causal experiments.
 
 The functions in this module are intentionally independent of Diffusers hooks.  A hook
 supplies an image-token tensor ``[batch, token, channel]`` and these functions make the
@@ -75,7 +75,7 @@ def remove_direction(x: torch.Tensor, vstar: torch.Tensor, token_ids: Sequence[i
 
     Rescaling has a degenerate case of its own.  For a token almost exactly
     collinear with v*, what survives the subtraction is numerical noise, and
-    stretching that back to full length amplifies the noise -- and can even restore
+    stretching that back to full length amplifies the noise, and can even restore
     the original direction with its sign flipped.  When the residue is smaller than
     ``degenerate_ratio`` of the original norm the direction is therefore replaced by
     an explicit, seeded random direction orthogonal to v*, which is what "keep the
@@ -163,7 +163,7 @@ def remove_matched_energy(x: torch.Tensor, direction: torch.Tensor, token_ids: S
 
     This is the equal-energy control: it takes exactly as much energy out of the
     residual as the intervention it controls for, but along a direction the
-    register circuit does not use, so a reviewer cannot attribute the effect to
+    register circuit does not use, so a reader cannot attribute the effect to
     perturbation size.
     """
     out = x.clone()
@@ -243,11 +243,11 @@ def rotate_toward_channel_preserve_norm(x: torch.Tensor, channel: int,
 
 def transplant(x: torch.Tensor, source: int, recipient: int, *, stage: str,
                vstar: Optional[torch.Tensor] = None, natural_norm: Optional[float] = None) -> torch.Tensor:
-    """Q5 residual transplant ladder for residual-like representations.
+    """Residual-to-key transplant ladder, for residual-like representations.
 
     ``pre_key`` and ``final_key`` tensors should be patched at their advertised hook
-    locations with :class:`ditsinks.interventions.FinalKeyIntervention`; this function
-    deliberately refuses to pretend a residual tensor is a key.
+    locations with :class:`ditsinks.interventions.FinalKeyIntervention`. This function
+    refuses to treat a residual tensor as a key.
     """
     out = x.clone()
     src, dst = out[..., source, :], out[..., recipient, :]
@@ -289,7 +289,7 @@ def regeneration(projections: torch.Tensor, layers: Sequence[int], original_toke
 
 
 def decompose_lifecycle(states: torch.Tensor, vstar: torch.Tensor) -> Dict[str, torch.Tensor]:
-    """Q6 decomposition for ``[..., layer, token, channel]`` states."""
+    """Lifecycle decomposition for ``[..., layer, token, channel]`` states."""
     v = _unit(vstar.to(states).reshape(1, -1))[0]
     alpha = (states.float() * v.float()).sum(-1)
     perp = states - alpha.to(states.dtype).unsqueeze(-1) * v

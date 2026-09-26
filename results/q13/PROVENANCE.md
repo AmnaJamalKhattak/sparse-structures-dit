@@ -1,6 +1,6 @@
-# Q13 result tables behind Figure 4
+# Result tables for the direction vs magnitude experiment
 
-Both tables come from `notebooks/iclr_q13_direction_vs_magnitude.ipynb`, run on FLUX.1-schnell
+Both tables come from `notebooks/direction_vs_magnitude.ipynb`, run on FLUX.1-schnell
 (1024 x 1024, denoising step 2 of 4, five DiffusionDB prompts at seed 0). They are the only inputs
 of `scripts/make_fig4_direction_at_fixed_norm.py`.
 

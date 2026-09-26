@@ -1,25 +1,25 @@
-"""Figures made for the paper itself, drawn only from what the runs measured.
+"""Final figures for the manuscript, drawn only from what the runs measured.
 
-Figure 1 (``fig_teaser``)
+Teaser figure (``fig_teaser``)
     One generation per model, read at one layer and denoising step: the generated image,
-    and three maps of the image tokens -- token norm over the layer median, the magnitude of
-    the model's massive channel, and the attention each token receives -- with the high-norm
+    and three maps of the image tokens (token norm over the layer median, the magnitude of
+    the model's massive channel, and the attention each token receives), with the high-norm
     tokens ringed in all of them. The second row is the distribution of |cos(x, v*)| over the
     same tokens, with the high-norm tokens marked. Every value comes from one traced
     generation (``capture_teaser``); the sentences printed under the maps are computed from
     those values, never typed.
 
 Retiming grid (``fig_retiming_grid``)
-    One prompt and seed per model from a Q16 run, with any chosen set of conditions. Column
-    labels carry the layers each condition edits, read from the run's frozen protocol, and
-    each panel carries the LPIPS its unit recorded.
+    One prompt and seed per model from a register-retiming run, with any chosen set of
+    conditions. Column labels carry the layers each condition edits, read from the run's
+    frozen protocol, and each panel carries the LPIPS its unit recorded.
 
-Both write at the ICLR text width (5.5 in) in the house style of the other paper figures.
+Both write at a 5.5 in text width in the house style of the other paper figures.
 
-Figure 1's caption numbers (``teaser_numbers.tex``, ``write_teaser_tex``)
+Teaser caption numbers (``teaser_numbers.tex``, ``write_teaser_tex``)
     Every number the caption states, as ``\\figone{model}{field}`` macros written from the
-    same captures the figure is drawn from, as ``q16_numbers.tex`` is for Section 10. Models
-    are ``flux``, ``schnell`` and ``pixart``; the fields are listed in ``TEASER_FIELDS``.
+    same captures the figure is drawn from. Models are ``flux``, ``schnell`` and ``pixart``;
+    the fields are listed in ``TEASER_FIELDS``.
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ VSTAR = "#0072B2"                       # the high-norm tokens along v* (Okabe-I
 OTHER_TOKENS = "#8c8c8c"                # every other token: grey context
 COLOURS = {"flux": "#0072B2", "pixart": "#D55E00"}
 MAP_CMAP = "inferno"
-WIDTH = 5.5                             # ICLR text width, inches
+WIDTH = 5.5                             # text width, inches
 LABEL, SMALL = 7.0, 6.2                 # points
 
 MODEL_NAMES = {"flux1-dev": ("FLUX.1-dev", "flux"), "flux1-schnell": ("FLUX.1-schnell", "flux"),
@@ -111,7 +111,7 @@ def _display(checkpoint: str) -> Tuple[str, str]:
     return MODEL_NAMES.get(str(checkpoint), (str(checkpoint), "flux"))
 
 
-# ================================================================ Figure 1: capture
+# ================================================================ teaser figure: capture
 @dataclass
 class TeaserCapture:
     """What one generation shows at one layer and step, per image token.
@@ -240,7 +240,7 @@ def step_name(step: int, steps: int = 0) -> str:
 
 
 def teaser_stats(capture: TeaserCapture, *, ratio: float = 3.0) -> Dict[str, Any]:
-    """The numbers Figure 1 and its caption state, from the captured values alone.
+    """The numbers the teaser figure and its caption state, from the captured values alone.
 
     High-norm tokens are the tokens at least ``ratio`` times the layer's median norm; the
     overlap is how many of them are also among the same number of largest tokens of the
@@ -298,8 +298,8 @@ def along_across(capture: TeaserCapture) -> Tuple[np.ndarray, np.ndarray]:
 
 def reference_image_difference(capture: TeaserCapture, run_roots: Sequence) -> Optional[Dict]:
     """How far the captured image is from the unmodified image of the same prompt and seed in
-    a Q16 run (``units/p<P>_s<S>/images/reference.png``): the check that the capture is the
-    generation the paper's other numbers were measured on. Pixel values 0-255; None when no
+    a register-retiming run (``units/p<P>_s<S>/images/reference.png``): the check that the
+    capture is the generation the other numbers were measured on. Pixel values 0-255; None when no
     run holds that unit or the capture has no image."""
     from PIL import Image
 
@@ -320,7 +320,7 @@ def reference_image_difference(capture: TeaserCapture, run_roots: Sequence) -> O
     return None
 
 
-# ================================================================ Figure 1: caption numbers
+# ================================================================ teaser figure: caption numbers
 # field -> (stats key, how it is printed)
 TEASER_FIELDS = {
     "layer": ("layer", "int"), "step": ("step", "int"), "steps": ("steps", "int"),
@@ -382,12 +382,12 @@ def write_teaser_tex(stats: Sequence[Dict[str, Any]], out_dir) -> Path:
     return path
 
 
-# ================================================================ Figure 1: drawing
+# ================================================================ teaser figure: drawing
 def _rings(ax, tokens, grid, *, image_extent: bool, lw: float = 0.45) -> None:
     """Ring each token. The radius is a fixed share of the map's width (never less than a
     token), so the rings read the same on a 64 x 64 map and a coarse one. Three tokens or
-    fewer also get an arrow from the map's centre side, so that a single token -- PixArt-Sigma's
-    register, in a corner -- is found at a glance."""
+    fewer also get an arrow from the map's centre side, so that a single token (PixArt-Sigma's
+    register, in a corner) is found at a glance."""
     from matplotlib.patches import Circle
 
     rows, cols = grid
@@ -530,13 +530,13 @@ def _teaser_arrows(cv, ax, along: np.ndarray, across: np.ndarray, high, *, units
             label.set_va("bottom")
 
 
-STACKED_WIDTH = 0.535 * WIDTH       # Figure 1's width: the caption takes the rest of the line
+STACKED_WIDTH = 0.535 * WIDTH       # the teaser figure's width: the caption takes the rest of the line
 
 
 def fig_teaser(captures: Sequence[TeaserCapture], *, ratio: float = 3.0, gamma: float = 0.6,
                layout: str = "stacked", scale_with: Sequence[TeaserCapture] = (),
                width: Optional[float] = None):
-    """Figure 1: for each model, the image and three maps of the same tokens (first row),
+    """The teaser figure: for each model, the image and three maps of the same tokens (first row),
     and every token as an arrow against v* (second row, ``along_across``).
 
     ``layout='stacked'`` puts the models one above the other (FLUX.1-dev first), each block
@@ -552,7 +552,7 @@ def fig_teaser(captures: Sequence[TeaserCapture], *, ratio: float = 3.0, gamma: 
     numbers are in the caption (``latex_teaser_macros``).
 
     ``scale_with``: further captures that set the arrow scale without being drawn, so that a
-    figure of one model (Figure 1) and one of the other (the appendix) share one scale.
+    figure of one model and one of the other share one scale.
     ``width`` (stacked only, inches): the figure's width; ``WIDTH`` draws one model across the
     full text width at print size (default ``STACKED_WIDTH``)."""
     captures = list(captures)
@@ -625,7 +625,7 @@ CONDITION_LABELS = {
 
 
 def condition_label(key: str) -> str:
-    """The short name a grid column prints for a Q16 condition."""
+    """The short name a grid column prints for a register-retiming condition."""
     key = str(key)
     if key in CONDITION_LABELS:
         return CONDITION_LABELS[key]
@@ -662,7 +662,7 @@ def condition_layers(protocol, key: str) -> str:
 
 def condition_header(protocol, key: str) -> str:
     """The second line of a grid column, short enough for a 0.6 in panel: the layers a
-    condition writes ('layers 5–8'); 'natural registers' under the removal ('removed');
+    condition writes ('layers 5 to 8'); 'natural registers' under the removal ('removed');
     and, for a removal followed by a write elsewhere ('induced'), only the layers of the
     write, the removal being the removal column's."""
     from .q16_main import condition_catalog
@@ -712,7 +712,7 @@ def resolve_conditions(protocol, names: Sequence[str]) -> List[str]:
 def available_conditions(protocol, run_root=None, unit: Optional[Tuple[int, int]] = None
                          ) -> List[Dict[str, Any]]:
     """Every condition of a protocol with its label and layers, and (with a unit) whether its
-    image is on disk -- the menu the notebook shows before a grid is chosen."""
+    image is on disk. This is the menu the notebook shows before a grid is chosen."""
     from .q16_main import condition_catalog, unit_directory
 
     rows = []
@@ -783,7 +783,7 @@ def retiming_row_from_unit(run_root, protocol, *, prompt_id: int, seed: int,
                            conditions: Sequence[str], labels: Optional[Dict[str, str]] = None,
                            subtitle: str = "", image_source: str = "images", size: int = 512,
                            metric: str = "lpips") -> RetimingRow:
-    """One model's row of the grid, read from its Q16 unit folder.
+    """One model's row of the grid, read from its register-retiming unit folder.
 
     Layers come from the frozen protocol, the metric from the unit's ``images.csv``, the
     images from ``images/`` (full size, downsampled to ``size``) or ``thumbnails/``.
@@ -870,7 +870,7 @@ def fig_retiming_grid(rows: Sequence[RetimingRow], *, layout: str = "auto",
     return cv.fig
 
 
-# ================================================================ direction at fixed norm (Q13)
+# ================================================================ direction at fixed norm
 DEPTH_COLOURS = {18: "#8fcfb4", 20: "#2f9e76", 24: "#00553b"}
 ROTATION_COLOURS = {"ordinary_mean": "#CC79A7", "random_orthogonal": "#56B4E9",
                     "ordinary_pc1": "#E69F00"}
@@ -882,7 +882,7 @@ ROTATION_LABELS = {"ordinary_mean": "toward the ordinary-token mean",
 def rotation_retention_table(population) -> "pd.DataFrame":
     """Per rotation target, angle and prompt: the share of affected heads that keep their
     clean sink (``sink_retention``) and the treated tokens' sink strength, averaged over the
-    register-zone layers after the edit, from a Q13 rotation run's ``population_metrics``."""
+    register-zone layers after the edit, from a rotation run's ``population_metrics``."""
     import pandas as pd
 
     rows = population[population["arm"] == "rotation"] if "arm" in population else population
@@ -903,10 +903,10 @@ def rotation_retention_table(population) -> "pd.DataFrame":
 def fig_direction_at_fixed_norm(depth, rotation, *, sink_threshold: float = 10.0):
     """Sinkhood follows alignment with v* when the norm is held fixed.
 
-    (a) ``depth``: a Q13 ``depth_response`` table -- the v* component of the treated
+    (a) ``depth``: a ``depth_response`` table, the v* component of the treated
     tokens scaled by beta and the token renormalised to its own norm, one row per
     (layer, beta); sink strength read at the edited layer. (b) ``rotation``:
-    ``rotation_retention_table`` -- the state rotated off v* by theta in the plane of v*
+    ``rotation_retention_table``, the state rotated off v* by theta in the plane of v*
     and a target direction, norm exact, read over the register zone downstream."""
     import matplotlib.pyplot as plt
 

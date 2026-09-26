@@ -460,7 +460,7 @@ class ProjectionCapture:
 
     The atlas sweep can only approximate the projection from the loud-channel
     columns it stores. This pass computes it exactly, at every layer, for the
-    cost of one dot product per block -- so the "direction, not magnitude" claim
+    cost of one dot product per block, so the "direction, not magnitude" claim
     is measured rather than estimated.
     """
 

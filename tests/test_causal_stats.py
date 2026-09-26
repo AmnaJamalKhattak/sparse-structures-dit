@@ -1,4 +1,4 @@
-"""Uncertainty behaves the way the design promises: paired, clustered, honest."""
+"""Uncertainty behaves the way the design promises: paired, clustered, and reported without inflation."""
 import numpy as np
 import pandas as pd
 import pytest

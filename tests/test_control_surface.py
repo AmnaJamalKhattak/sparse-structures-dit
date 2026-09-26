@@ -1,4 +1,4 @@
-"""Q13 separates direction from magnitude, and the separation has to be exact.
+"""The control surface separates direction from magnitude, and the separation has to be exact.
 
 The whole experiment rests on two claims about the operators: that ``beta`` moves
 alignment without moving norm, and that ``gamma`` moves norm without moving direction.
@@ -45,7 +45,7 @@ def paper_style():
 
 @pytest.fixture
 def states():
-    """A loud, partly aligned population -- the shape the real registers have."""
+    """A loud, partly aligned population, the shape the real registers have."""
     torch.manual_seed(0)
     x = torch.randn(24, 96) * 1.5
     v = torch.randn(96)
@@ -216,7 +216,7 @@ def test_the_ablation_runs_before_the_rescue_inside_one_edit():
 
 
 def test_the_orthogonal_rescue_matches_the_vstar_rescue_in_energy_and_is_orthogonal():
-    """Equal size, different direction -- so a difference cannot be about size."""
+    """Equal size, different direction, so a difference cannot be about size."""
     torch.manual_seed(0)
     channel = 2
     clean = torch.randn(8, 24)
@@ -254,7 +254,7 @@ def test_every_selection_mode_reads_only_the_clean_pass(states):
 
 
 def test_the_primary_population_is_the_intersection_of_both_bars(states):
-    """Not "loud", not "aligned", but both -- which is the population the plan names."""
+    """Not "loud", not "aligned", but both, which is the target population."""
     x, v = states
     unit = CS._unit(v)
     projection = x @ unit
@@ -530,7 +530,7 @@ def test_the_aligned_population_count_is_the_one_beta_can_move():
     """``n_highnorm`` is pinned along the beta axis; this is the count that is not.
 
     beta renormalises every treated token, so a count defined by a norm threshold alone
-    cannot move along that axis -- which makes it a positive control, not an endpoint.
+    cannot move along that axis, which makes it a positive control, not an endpoint.
     The population the project actually cares about is loud AND aligned, and rotating a
     token away from v* does remove it from that set at fixed norm.
     """
@@ -574,7 +574,7 @@ def test_the_channel_axis_control_exists_and_rescales_the_channel_not_vstar():
     out = CS.make_edit(condition, direction=v, token_ids=[0, 1], dominant_channel=channel,
                        clean_states={}, seed=0)(x.clone(), _context())
     # beta=0 along e_{c*} removes that coordinate from the treated tokens, and the
-    # energy match then rescales the whole perturbation -- so the coordinate shrinks
+    # energy match then rescales the whole perturbation, so the coordinate shrinks
     # sharply rather than vanishing exactly, and the untreated tokens never move.
     assert abs(float(out[0, channel])) < abs(float(x[0, channel]))
     assert torch.allclose(out[2:], x[2:]), "a control must not touch untreated tokens"
@@ -638,7 +638,7 @@ def test_the_diary_indexes_its_batch_row_so_cfg_twins_are_not_double_counted():
 
     The conditional row is always first, so an index is enough to let a summary filter to
     it. Without one, the perturbation L2 reported for every CFG twin would be the mean of
-    two identical notes -- right by luck for a mean, wrong for a count or a sum, and
+    two identical notes, right by luck for a mean, wrong for a count or a sum, and
     silently wrong either way.
     """
     torch.manual_seed(0)
@@ -674,7 +674,7 @@ def test_store_keys_is_capped_so_a_stray_flag_cannot_exhaust_the_device():
 def test_a_resumed_run_refuses_cells_from_a_different_configuration(ctx, tmp_path):
     """The hazard that could quietly corrupt a final run.
 
-    The cache key identifies a *cell* -- scope, condition, prompt, seed -- not an
+    The cache key identifies a *cell*, scope, condition, prompt, seed, not an
     *experiment*. Widening the grid, changing the treatment rule or pointing at another
     channel produces the same cell ids with different meanings, and a resumed run would
     mix them without a word. Cells carry a fingerprint of everything that could change a
@@ -710,7 +710,7 @@ def test_the_fingerprint_ignores_what_cannot_change_a_number(ctx, tmp_path):
     """Output paths and image-saving flags must not invalidate a cache.
 
     A fingerprint that changed with the amplification factor would throw away hours of
-    GPU time for a cosmetic setting, which would teach the user to pass resume=False and
+    GPU time for a cosmetic setting, which would push callers toward resume=False and
     lose the protection entirely.
     """
     base = dict(betas=(0.0, 1.0), gammas=(1.0,), layer_scopes=("write",))
@@ -739,7 +739,7 @@ def test_the_cfg_twins_are_identical_internally_and_differ_only_through_the_samp
     """Why the CFG arm is an image-level comparison, asserted rather than assumed.
 
     The tracer reads the conditional row, and batch rows do not mix inside the
-    transformer -- each is an independent element of one forward pass. So a twin and its
+    transformer, each is an independent element of one forward pass. So a twin and its
     conditional-only partner produce *identical* internal readouts whatever the guidance
     strength; they diverge only in the sampler, where ``u + s(t - u)`` combines the
     branches. This test pins that, because a reader who compared population metrics
@@ -814,7 +814,7 @@ def test_an_underpowered_run_cannot_buy_a_confidence_interval(run):
 def test_three_prompts_clear_the_bootstrap_floor(ctx, tmp_path):
     """The floor is a floor: at three clusters the bootstrap runs rather than declining.
 
-    It still reports no usable interval here, and correctly so -- the synthetic
+    It still reports no usable interval here, and correctly so, the synthetic
     checkpoint's forward pass ignores the prompt text, so three prompts at one seed give
     three byte-identical trajectories and a degenerate resampling distribution. That is
     a fact about the stand-in model, not about the statistics, and the interval machinery
@@ -861,14 +861,14 @@ def test_the_clustered_interval_appears_once_the_prompts_actually_differ():
     assert control["ci_high"] < rescue["ci_low"]
 
 
-# ============ the flaws the first real FLUX validation run exposed
+# ============ cache invalidation across analysis-code changes
 def test_the_cache_fingerprint_covers_the_analysis_code():
-    """The failure that reported "diagnostics are missing" with the code in the checkout.
+    """The cache key must change when the analysis code that produces a column changes.
 
     Adding a diagnostic to the edit hook leaves every setting identical and every number
-    different. Keyed on config alone, the cache served the old rows -- without the new
-    columns -- and a validation cell that required them failed while the code that emits
-    them sat in the repo. Hashed by source text rather than git SHA, so a commit touching
+    different. Keyed on config alone, the cache would serve the old rows without the new
+    columns, and a validation cell that requires them would fail while the code that emits
+    them sits in the repo. Hashed by source text rather than git SHA, so a commit touching
     only a notebook does not discard GPU hours.
     """
     import importlib
@@ -1110,7 +1110,7 @@ def test_negative_beta_inverts_the_projection_at_unchanged_norm():
 def test_the_clean_and_realised_alignment_are_commensurable():
     """The check that makes panel (a) of the depth figure readable.
 
-    Both are signed means, so their difference is exactly zero at beta = 1 -- the no-op
+    Both are signed means, so their difference is exactly zero at beta = 1, the no-op
     cell. Comparing a mean of absolute values against a mean of signed ones breaks that
     identity wherever the register population has mixed signs, and the panel would show a
     gap at the one cell where there cannot be one.
@@ -1176,7 +1176,7 @@ def test_a_subspace_that_captures_everything_is_flagged_as_undiscriminating():
     # is what decides.
     assert subspace["rank_fraction"] > 0.5
     assert subspace["is_discriminative"] is False
-    # ~0.97 rather than ~1.0, because 11 of 12 directions is not quite all of them -- but
+    # ~0.97 rather than ~1.0, because 11 of 12 directions is not quite all of them, but
     # near enough that no state has room to score low, which is the point.
     assert CS.onmanifold_energy(narrow, subspace) > 0.9
     # And a real restriction is flagged the other way, at a lower variance explained.
@@ -1234,8 +1234,8 @@ def _depth_frame(clean_by_scope, *, with_image=False):
 def _assert_inside(figure, axis, texts):
     """Every label is drawn within the axes, in rendered pixels rather than data units.
 
-    The two branches place their text in different coordinate systems -- one in data
-    coordinates beside the mark, one as an offset from it -- so the only assertion that
+    The two branches place their text in different coordinate systems, one in data
+    coordinates beside the mark, one as an offset from it, so the only assertion that
     covers both is the one that matters anyway: does it land on the panel.
     """
     figure.canvas.draw()
@@ -1329,7 +1329,7 @@ def test_the_postmlp_suffix_moves_the_edit_to_the_block_output_and_nothing_else(
 
 
 def test_the_writer_offsets_are_the_writer_range_block_by_block():
-    """FLUX 17/18/19 and PixArt 8/9/10 -- consecutive writer blocks, from the artifact."""
+    """FLUX 17/18/19 and PixArt 8/9/10, consecutive writer blocks, from the artifact."""
     config = CS.ControlSurfaceConfig(experiment_root=Path("/tmp/unused"))
     assert [config.layers_for(FLUX_GEOMETRY, f"writer+{k}")[0] for k in (0, 1, 2)] == \
         [17, 18, 19]
@@ -1391,7 +1391,7 @@ def test_the_stage_probe_reads_all_four_stages_and_says_which_are_post_edit():
 
 def test_a_block_without_a_post_attention_stage_is_dropped_rather_than_raising():
     """FLUX single blocks feed attention and the feed-forward from one normalised stream,
-    so `pre_mlp_residual` does not exist at layer 19 -- and asking for it would raise."""
+    so `pre_mlp_residual` does not exist at layer 19, and asking for it would raise."""
     class _Cap:
         def __init__(self, ok): self.supported = ok
 
@@ -1520,7 +1520,7 @@ def test_the_rotation_follows_the_stated_formula_and_leaves_the_rest_alone():
 
 
 def test_the_rotation_is_not_the_beta_operator():
-    """The distinction the user asked for, as a test rather than a comment.
+    """The distinction between a rotation and the beta operator, as a test rather than a comment.
 
     beta rescales the v* coefficient and then restores the length, so it can never put
     weight on a chosen direction u. A rotation transfers the alignment from v* to u.
@@ -1637,7 +1637,7 @@ def test_the_plane_share_is_the_sum_of_its_two_parts_and_never_below_cos_squared
     """The inequality the arm's whole framing rests on.
 
     plane share = alpha^2/||x||^2 + b^2/||x||^2, and the first term IS cos^2(x, v*). So a
-    token aligned with v* has a share of at least cos^2 for EVERY u -- which is why the
+    token aligned with v* has a share of at least cos^2 for EVERY u, which is why the
     sum cannot distinguish one target from another and b^2 is the column that does.
     """
     v, x = _plane_setup()
@@ -1653,7 +1653,7 @@ def test_the_plane_share_is_the_sum_of_its_two_parts_and_never_below_cos_squared
             pytest.approx(shares["in_plane_energy_share"], abs=1e-6)
         assert shares["in_plane_energy_share"] >= shares["cos_squared_mean"] - 1e-6
         assert shares["in_plane_share_at_least_cos_squared"] is True
-        # And the share is therefore large whatever u is -- the point of the correction.
+        # And the share is therefore large whatever u is, the point of the correction.
         assert shares["in_plane_energy_share"] > 0.9, target
         assert shares["out_of_plane_share"] == pytest.approx(
             1.0 - shares["in_plane_energy_share"], abs=1e-6)
@@ -1726,7 +1726,7 @@ def test_ordinary_mean_averages_unit_directions_not_raw_vectors():
     basis = CS.plane_basis(v, "ordinary_mean", width=width,
                            ordinary=torch.stack([short, short, long]))
     u = basis["u"]
-    # Two of the three point along axis 1, so it must dominate -- which a raw mean would
+    # Two of the three point along axis 1, so it must dominate, which a raw mean would
     # have lost entirely to the single long vector on axis 2.
     assert abs(float(u[1])) > abs(float(u[2])), (float(u[1]), float(u[2]))
 
@@ -1827,10 +1827,10 @@ def test_the_strip_marks_the_unmodified_frame_and_thins_a_long_sweep(tmp_path):
 # ============================================ the rotation arm across two devices
 # The plane is built once per (step, layer) from the CLEAN probe states, which the tracer
 # keeps on the CPU; the edit applies it to the LIVE tensor on the model's device. Every
-# matmul between them crosses that boundary. This suite has no GPU, so the first real
-# FLUX rotation run crashed on it -- these two tests are what would have caught it.
+# matmul between them crosses that boundary, and this suite has no GPU to exercise it
+# end to end, so these two tests pin the structure that keeps it correct instead.
 def test_every_rotation_helper_takes_its_basis_through_one_device_resolver():
-    """A lint-style test, deliberately.
+    """A lint-style test: it checks structure, not a computed value.
 
     A cross-device matmul is not a wrong number, it is a crash on hardware this suite
     does not have, so no CPU test can exercise it end to end. What CAN be pinned is the

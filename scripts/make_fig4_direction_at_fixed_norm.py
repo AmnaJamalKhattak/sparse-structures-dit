@@ -1,9 +1,9 @@
-"""Draw Figure 4 (alignment with v* at fixed norm) from the Q13 result tables.
+"""Draw the alignment-with-v*-at-fixed-norm figure from the direction vs magnitude experiment.
 
     python scripts/make_fig4_direction_at_fixed_norm.py [--data results/q13] [--out figures]
 
-Inputs (see ``results/q13/PROVENANCE.md``): the Q13 depth sweep and the Q13 rotation run of
-``notebooks/iclr_q13_direction_vs_magnitude.ipynb`` on FLUX.1-schnell. Output:
+Inputs (see ``results/q13/PROVENANCE.md``): the depth sweep and the rotation run of
+``notebooks/direction_vs_magnitude.ipynb`` on FLUX.1-schnell. Output:
 ``fig_direction_at_fixed_norm.pdf`` and ``.png``.
 """
 import argparse

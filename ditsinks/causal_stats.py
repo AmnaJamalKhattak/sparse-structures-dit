@@ -1,12 +1,12 @@
-"""Uncertainty for the causal claims, in the form the ICLR plan predeclares.
+"""Uncertainty for the causal claims, in the predeclared form these experiments use.
 
 Three ideas do all the work here.
 
 **The prompt is the cluster, the prompt-seed pair is the unit.**  Five seeds of
 one prompt are not five independent observations: they share the prompt's layout
 and its register positions.  Every interval below resamples *prompts* with
-replacement and carries all of a prompt's seeds along, which is what keeps the
-interval honest when seeds are correlated within a prompt.
+replacement and carries all of a prompt's seeds along, which keeps the
+interval valid when seeds are correlated within a prompt.
 
 **Effects are paired.**  A condition is compared with a reference run of the
 same prompt, seed, and noise, so the difference is within-unit and the
@@ -14,8 +14,8 @@ prompt-to-prompt variance never enters the effect at all.
 
 **A near-zero claim needs an equivalence test.**  "Not significant" is not
 evidence of no effect.  Where the claim is that something is practically
-unchanged -- immediate sink identity after a norm-only reduction, or a sham hook
-leaving the model alone -- the right test is two one-sided tests against a margin
+unchanged (immediate sink identity after a norm-only reduction, or a sham hook
+leaving the model alone), the right test is two one-sided tests against a margin
 declared before the run.
 """
 from __future__ import annotations
@@ -240,8 +240,8 @@ PRIMARY_CLAIMS: Tuple[Claim, ...] = (
           "head_retention", "direction_removal", "sham", "decrease"),
     Claim("q1", "A count-matched control does not",
           "head_retention", "random_tokens_zeroed", "sham", "equivalent"),
-    # The gamma=1 run of the same sweep is Q2's sham: the hook fires and scales
-    # the channel by one, so it is the reference the suppression is paired against.
+    # The gamma=1 run of the same sweep is the channel-scaling sham. The hook fires
+    # and scales the channel by one, so it is the reference the suppression is paired against.
     Claim("q2", "Suppressing the dominant channel lowers the register projection",
           "vstar_projection_change", "dominant_channel__gamma0__writer_only",
           "dominant_channel__gamma1__writer_only", "decrease", table="dose_response",
@@ -284,7 +284,7 @@ def evaluate_claim(result, claim: Claim, *, checkpoint: str = "", iterations: in
     estimate = paired_effect(frame, claim.endpoint, treatment=claim.treatment,
                              reference=claim.reference, condition=claim.condition_column,
                              iterations=iterations, seed=seed)
-    # "Positive fraction" is not what a reviewer wants for a claim predicting a
+    # "Positive fraction" is not what is needed for a claim predicting a
     # decrease; report the share of units moving the way the claim predicts.
     agreement = (estimate.positive_fraction if claim.expect == "increase"
                  else 1.0 - estimate.positive_fraction if claim.expect == "decrease"
@@ -308,8 +308,8 @@ def _claim_verdict(estimate: Estimate, claim: Claim) -> str:
 
     The order of these checks is the argument: an unmeasurable endpoint, then too
     few prompts to form an interval at all, then an effect too small to be
-    anything but arithmetic, then the interval itself.  A degenerate interval --
-    every unit moved by exactly the same amount -- is reported as such rather
+    anything but arithmetic, then the interval itself.  A degenerate interval
+    (every unit moved by exactly the same amount) is reported as such rather
     than being read either as significance or as a null.
     """
     if not np.isfinite(estimate.value):
@@ -341,7 +341,7 @@ def _claim_verdict(estimate: Estimate, claim: Claim) -> str:
 def evidence_table(results: Mapping[str, Any], *, checkpoint: str = "",
                    claims: Sequence[Claim] = PRIMARY_CLAIMS, iterations: int = 2000,
                    seed: int = 0) -> pd.DataFrame:
-    """The claim-by-claim table a reviewer reads first."""
+    """The claim-by-claim summary table."""
     rows = []
     for claim in claims:
         result = results.get(claim.question)

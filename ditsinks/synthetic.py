@@ -4,10 +4,10 @@ These are the *actual* diffusers block classes, instantiated at toy width and
 driven with random inputs, so hook signatures, sequence layouts and the
 attention tap are exercised for real. Only the weights are fake.
 
-Registers are planted deliberately: a few image tokens are pushed hard along a
-fixed direction that is concentrated on one channel, and the layers are wired so
-that direction survives. That gives the figures a known ground truth -- if the
-analysis cannot recover the planted direction here, it will not find a real one.
+A few image tokens are pushed hard along a fixed direction that is concentrated
+on one channel, and the layers are wired so that direction survives. That gives
+the figures a known ground truth: if the analysis cannot recover the planted
+direction here, it will not find a real one.
 """
 from __future__ import annotations
 

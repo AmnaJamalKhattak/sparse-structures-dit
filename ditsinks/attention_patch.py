@@ -1,6 +1,6 @@
 """Observe attention without changing it.
 
-Every diffusers model family funnels its attention through exactly one call --
+Every diffusers model family funnels its attention through exactly one call:
 `dispatch_attention_fn(q, k, v, ...)` for the FLUX families, and
 `F.scaled_dot_product_attention(q, k, v, ...)` for the PixArt/`Attention` path.
 By rebinding that name on the *module that calls it* we see the final queries
@@ -8,7 +8,7 @@ and keys (post QK-norm, post RoPE, exactly what produces the logits) while the
 model still computes its output with its own kernel.
 
 That matters: reimplementing a processor to expose probabilities changes the
-numerics, and therefore the image. Here the forward pass is untouched -- the
+numerics, and therefore the image. Here the forward pass is untouched; the
 statistics are computed alongside it, in fp32.
 """
 from __future__ import annotations
@@ -78,12 +78,12 @@ def sequence_axis(x: torch.Tensor, heads: Optional[int] = None) -> int:
     diffusers hands the FLUX kernel :math:`[B, S, H, D]` and the generic ``Attention``
     path :math:`[B, H, S, D]`, so the sequence is axis 1 in one and axis 2 in the other.
     :func:`to_bhsd` exists to normalise that for *reading*; this resolves it for
-    *writing*, where transposing is not an option -- the kernel must receive the layout
+    *writing*, where transposing is not an option: the kernel must receive the layout
     its own processor built.
 
     Resolved from the head count where one is known, and otherwise from the fact that an
     attention tensor always has far more sequence positions than heads. Getting this
-    wrong appends to the head axis, which is how the first version of this failed.
+    wrong appends to the head axis instead of the sequence axis.
     """
     if x.ndim != 4:
         raise ValueError(f"expected a 4-D attention tensor, got shape {tuple(x.shape)}")
@@ -107,18 +107,17 @@ def apply_kv_transform(transform: Callable, query, key, value, kwargs, args=(), 
     This is the one seam in the model where a *non-spatial* memory slot can be added.
     The queries are untouched, so the attention output keeps its sequence length exactly:
     softmax over :math:`[\ldots, S_q, S_{kv}+R]` times :math:`[\ldots, S_{kv}+R, D]` is
-    still :math:`[\ldots, S_q, D]`.  Nothing downstream sees a shape change, and no image
-    patch corresponds to the new rows -- they exist only as attention targets.
+    still :math:`[\ldots, S_q, D]`. Nothing downstream sees a shape change, and no image
+    patch corresponds to the new rows: they exist only as attention targets.
 
     It is also *after* QK-norm and RoPE, which is what makes the slots genuinely
     non-spatial: the model's positional encoding has already been applied to the real
-    keys, so a row added here carries no position at all.  Appending before RoPE would
+    keys, so a row added here carries no position at all. Appending before RoPE would
     give the slot a spatial address and defeat the purpose.
 
     **The transform returns only the rows to add**, not the concatenated result. The
     layout differs between model families and transposing is not an option here, so the
-    axis is resolved once, in this function, and a caller cannot get it wrong. The first
-    version of this took a concatenated tensor and appended to the head axis instead.
+    axis is resolved once, in this function, and a caller cannot get it wrong.
     """
     result = transform(query, key, value, kwargs)
     if result is None:
@@ -177,7 +176,7 @@ def apply_kv_transform(transform: Callable, query, key, value, kwargs, args=(), 
 class AttentionTap:
     """Observe or selectively replace final keys without replacing the kernel.
 
-    ``instrument`` and ``identity`` are deliberately inert validation modes.
+    ``instrument`` and ``identity`` are inert validation modes.
     ``patch`` applies ``key_transform`` and/or ``value_transform`` immediately before
     the real model kernel; the callback then observes the exact query/key/value supplied
     to that kernel.
@@ -187,8 +186,8 @@ class AttentionTap:
     only meaningful if the logits are provably identical between the two runs, which
     requires the key patch and the value substitution to be applied at the same call, in
     a fixed order, by the same object. Splitting them across two taps would make the
-    result depend on which tap entered last -- an ordering that is invisible at the call
-    site and has already produced one wrong answer in this project.
+    result depend on which tap entered last, an ordering that is invisible at the call
+    site.
     """
 
     def __init__(self, family: str, callback: Callable[..., None], *,
@@ -228,7 +227,7 @@ class AttentionTap:
                 if self.mode == "patch":
                     # Key first, then value, always. The value transform is handed the
                     # ORIGINAL key so that what it substitutes cannot depend on whether a
-                    # key patch ran -- which is what lets two runs share a distribution.
+                    # key patch ran, which is what lets two runs share a distribution.
                     original_key = key
                     if self.key_transform is not None:
                         replacement = self.key_transform(query, key, value, kwargs)

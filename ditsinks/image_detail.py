@@ -1,13 +1,12 @@
 """Where in an image an intervention landed: composition, or contours and texture?
 
-The register ablations in this project produce small but systematic image changes, and
-the open question is *what kind* of change.  A global pixel distance cannot tell a
-recomposed scene from a scene with softer edges, so these three readouts split the
-difference map by spatial frequency and by where the clean image has structure.
+A global pixel distance cannot tell a recomposed scene from a scene with softer edges,
+so these three readouts split the difference map by spatial frequency and by where the
+clean image has structure.
 
-Deliberately elementary.  Every quantity here is a mean of squares over an explicit
-mask, computed with numpy and no learned model, so a reviewer can re-derive any number
-from the saved images.  Nothing is calibrated, fitted or thresholded against an outcome.
+Every quantity here is elementary: a mean of squares over an explicit mask, computed
+with numpy and no learned model, so any number can be re-derived from the saved images.
+Nothing is calibrated, fitted or thresholded against an outcome.
 """
 from __future__ import annotations
 
@@ -78,9 +77,9 @@ def spectrum_bands(clean, treated) -> Dict[str, float]:
 
     The fractions are of the *difference*, not of either image: the question is where
     the intervention's effect sits, so the clean image's own spectrum is not the
-    denominator.  ``high_over_low`` is reported because it is the single number that
-    separates "the scene changed" from "the detail changed" -- large means the effect
-    is in texture and contours rather than in composition.
+    denominator. ``high_over_low`` separates "the scene changed" from "the detail
+    changed": a large value means the effect is in texture and contours rather than
+    in composition.
     """
     a, b = to_gray(clean), to_gray(treated)
     out: Dict[str, float] = {}
@@ -120,7 +119,7 @@ def gradient_change(clean, treated) -> Dict[str, float]:
     """Change in Sobel magnitude: did the intervention sharpen or soften the image?
 
     ``gradient_energy_ratio`` below 1 means the treated image carries less edge
-    energy than the clean one -- a loss of definition rather than a different scene.
+    energy than the clean one, a loss of definition rather than a different scene.
     """
     a, b = to_gray(clean), to_gray(treated)
     out = {"gradient_rmse": float("nan"), "gradient_energy_ratio": float("nan"),
@@ -140,8 +139,8 @@ def gradient_change(clean, treated) -> Dict[str, float]:
 def high_gradient_concentration(clean, treated, quantile: float = 0.8) -> Dict[str, float]:
     """What share of the difference lands on the clean image's own structure.
 
-    The mask is the top ``1 - quantile`` of clean Sobel magnitude -- contours, edges and
-    highlights -- and is taken from the **clean** image alone, so it cannot be moved by
+    The mask is the top ``1 - quantile`` of clean Sobel magnitude (contours, edges and
+    highlights) and is taken from the **clean** image alone, so it cannot be moved by
     the intervention being measured.
 
     ``concentration_ratio`` is the share of difference energy inside that mask divided
@@ -157,7 +156,7 @@ def high_gradient_concentration(clean, treated, quantile: float = 0.8) -> Dict[s
     gradient = sobel_magnitude(a)
     # Rank-based rather than value-based. A generated image often has large flat
     # regions, where `gradient >= quantile(gradient, q)` has its threshold at zero and
-    # the mask silently becomes the whole frame -- which pins the ratio below to exactly
+    # the mask silently becomes the whole frame. That pins the ratio below to exactly
     # 1.0 and reads as "no concentration" when the truth is "the mask was undefined".
     # Taking the top (1 - q) of pixels by rank keeps the area equal to 1 - q whatever
     # the distribution of ties.

@@ -1,4 +1,5 @@
-r"""Q13 -- is ``v*`` a causal state variable, or a correlate of large magnitude?
+r"""The direction vs magnitude experiment: is ``v*`` a causal state variable, or a
+correlate of large magnitude?
 
 Everything this project has established about the register population is *correlational
 in one specific way*: the tokens were selected by norm, they turn out to be aligned with
@@ -31,7 +32,7 @@ vector, which cannot change the direction ``beta`` produced:
     x'(\beta, \gamma) = \gamma\, \tilde y(\beta)
 
 ``(beta, gamma) = (1, 1)`` reconstructs ``x`` up to float32 rounding, and that identity
-is asserted rather than assumed -- see :func:`identity_error` and the tests.
+is asserted rather than assumed; see :func:`identity_error` and the tests.
 
 The two axes give a 5x5 grid in which magnitude and direction vary independently, which
 is what makes H1 (magnitude) and H2 (direction) distinguishable at all.
@@ -74,9 +75,8 @@ def _unit(v: torch.Tensor) -> torch.Tensor:
 def decompose(x: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Split ``[N, C]`` states into ``alpha`` of shape ``[N, 1]`` and the residual ``r``.
 
-    Float32 throughout, deliberately.  ``v`` quantised into the model dtype is not a
-    unit vector any more, and a decomposition along a non-unit direction does not
-    reassemble -- a mistake that has already cost this project one debugging session.
+    Float32 throughout. ``v`` quantised into the model dtype is not a unit vector any
+    more, and a decomposition along a non-unit direction does not reassemble.
     """
     x = x.float()
     unit = _unit(v).to(x.device)
@@ -118,7 +118,7 @@ def align_scale(x: torch.Tensor, v: torch.Tensor, beta: float, *, seed: int = 0,
 
 def control_surface_states(x: torch.Tensor, v: torch.Tensor, beta: float, gamma: float, *,
                            seed: int = 0) -> Tuple[torch.Tensor, int]:
-    """``x'(beta, gamma) = gamma * y~(beta)`` -- the full 2D control applied to ``[N, C]``."""
+    """``x'(beta, gamma) = gamma * y~(beta)``: the full 2D control applied to ``[N, C]``."""
     aligned, degenerate = align_scale(x, v, beta, seed=seed)
     return float(gamma) * aligned, degenerate
 
@@ -140,7 +140,7 @@ def match_perturbation(base: torch.Tensor, edited: torch.Tensor,
 
     The energy-matching primitive every control in this module uses.  A control that
     perturbs by a different amount than the condition it controls for is not a control,
-    and matching it here -- once, on the tensors themselves -- is stronger than matching
+    and matching it here, once, on the tensors themselves, is stronger than matching
     a run-level energy total that could be met by a few tokens moving a great deal.
     """
     delta = edited.float() - base.float()
@@ -155,7 +155,7 @@ def orthogonal_direction(v: torch.Tensor, width: int, *, seed: int) -> torch.Ten
     .. math:: u_\perp = u - (u^\top v)v, \qquad u_\perp \leftarrow u_\perp/\|u_\perp\|
 
     Derived from ``seed`` alone, so the same experiment seed always produces the same
-    control direction and a reviewer can regenerate it.
+    control direction and it can be regenerated exactly.
     """
     unit = _unit(v)
     generator = torch.Generator(device="cpu").manual_seed(int(seed))
@@ -203,9 +203,9 @@ class Treatment:
 def clean_sink_ids(targets: FrozenTargets, *, layers: Sequence[int] = ()) -> Tuple[int, ...]:
     """Tokens that are some head's strongest image key on the clean run.
 
-    This is the repository's existing per-token notion of sinkhood --
+    This is the repository's existing per-token notion of sinkhood.
     ``FrozenTargets.clean_sink_by_head`` holds the per-head argmax recorded by
-    :class:`~ditsinks.causal_engine.CausalTracer` -- and no new definition is introduced.
+    :class:`~ditsinks.causal_engine.CausalTracer`, and no new definition is introduced.
     """
     wanted = {int(l) for l in layers} if len(layers) else None
     found: List[int] = []
@@ -269,7 +269,7 @@ def select_treatment(targets: FrozenTargets, *, mode: str = "highnorm_and_aligne
         return finish(ids or [int(projection.argmax())],
                       f"top {100 - projection_percentile:g}% by clean x . v*")
 
-    # highnorm_and_aligned: the intersection the ICLR plan prefers for the primary arm.
+    # highnorm_and_aligned: the intersection used for the primary arm.
     # Norm uses the repository's existing threshold (ratio x median); alignment uses the
     # bar select_frozen_targets already computed from the natural register population,
     # so neither half of the intersection is a new definition invented here.
@@ -335,7 +335,7 @@ def rotation_norm_error(x: torch.Tensor, rotated: torch.Tensor) -> float:
     """Largest relative change in token norm the rotation produced.
 
     Reported and asserted on rather than corrected. A rotation that does not preserve
-    norm is a bug in the basis -- a ``u`` that is not unit, or not orthogonal to ``v`` --
+    norm is a bug in the basis (a ``u`` that is not unit, or not orthogonal to ``v``),
     and renormalising the output would hide exactly that.
     """
     before = x.float().norm(dim=-1)
@@ -359,9 +359,9 @@ def plane_basis(vstar: torch.Tensor, target: str, *, width: int, seed: int = 0,
     ``random_orthogonal``  a seeded random unit direction. The null: any direction of the
                            same length, chosen without reference to the data.
     ``residual_pc1``       the leading principal direction of the clean tokens' residuals
-                           after :math:`v^*` is removed -- the direction the population
+                           after :math:`v^*` is removed: the direction the population
                            itself varies in most, once the register axis is taken out.
-    ``ordinary_mean``      where the *ordinary* tokens point -- the mean of their unit
+    ``ordinary_mean``      where the *ordinary* tokens point: the mean of their unit
                            directions, which is a direction question rather than a
                            length one, so the longest token does not decide it. Rotating
                            the register toward this asks: what happens if the register
@@ -542,7 +542,7 @@ def onmanifold_energy(states: torch.Tensor, subspace: Dict[str, Any]) -> float:
     The operators preserve or rescale a token's *norm* by construction, so norm cannot
     say whether a state is one the model ever produces. This can: a token pushed to a
     negative ``v*`` projection at unchanged length either still lies in the space the
-    clean population spans -- a state the model could have reached -- or it does not, and
+    clean population spans (a state the model could have reached) or it does not, and
     is then off-manifold corruption wearing the right magnitude.
     """
     if not subspace or "basis" not in subspace:
@@ -560,7 +560,7 @@ class Condition:
     """One generated counterfactual: what was done, to which tokens, and why.
 
     ``arm`` decides the output subdirectory; ``role`` marks whether a row is the thing
-    being tested or the control that keeps it honest.
+    being tested or the control it is checked against.
     """
 
     key: str
@@ -574,8 +574,9 @@ class Condition:
     token_group: str = "treatment"             # treatment | random_tokens | sink_only
     role: str = "condition"                    # condition | reference | control
     match_energy_to: Optional[str] = None      # key of the condition whose L2 to match
-    # A causal intervention edits the conditional branch, which is the Q1--Q6 convention
-    # and what every other arm here uses. On a CFG-batched pipeline that choice is not
+    # A causal intervention edits the conditional branch, the convention the causal-
+    # mechanism experiments use and what every other arm here uses. On a CFG-batched
+    # pipeline that choice is not
     # neutral: PixArt concatenates [negative, positive] and combines them as
     # `u + s(t - u)`, so an edit confined to the conditional row enters only the second
     # term and its effect on the prediction is scaled by the guidance strength s. Editing
@@ -583,7 +584,7 @@ class Condition:
     # a few conditions both ways so that factor is measured rather than assumed.
     all_batch_rows: bool = False
     # The true-rotation arm: an angle in the (v*, u) plane and which u. `beta` and
-    # `gamma` stay at their identity values there -- a rotation is not a rescale, and
+    # `gamma` stay at their identity values there: a rotation is not a rescale, and
     # composing the two would make neither measurable.
     theta_deg: float = 0.0
     rotation_target: str = ""
@@ -663,7 +664,7 @@ def control_conditions(betas: Sequence[float]) -> List[Condition]:
 def cfg_conditions(betas: Sequence[float], gammas: Sequence[float]) -> List[Condition]:
     """A few strong settings run on BOTH batch rows, to measure the guidance factor.
 
-    Deliberately small: the twins of a few named cells, not a second 5x5 grid. Their
+    Small on purpose: the twins of a few named cells, not a second 5x5 grid. Their
     conditional-only counterparts already exist in the ``grid`` and ``rescue`` arms, so
     the comparison is a join rather than a duplication. Widen it only if this diagnostic
     shows the two branch choices behaving qualitatively differently, rather than
@@ -671,7 +672,7 @@ def cfg_conditions(betas: Sequence[float], gammas: Sequence[float]) -> List[Cond
 
     **This arm is readable on images only, and that is not a limitation of the
     implementation.** The tracer records the conditional row, and batch rows do not mix
-    inside the transformer -- each is an independent element of the same forward pass. So
+    inside the transformer: each is an independent element of the same forward pass. So
     the internal readouts of a twin and its conditional-only partner are *identical by
     construction*, whatever the guidance strength. The two choices diverge in the
     **sampler**, where ``u + s(t - u)`` combines the branches: a conditional-only edit
@@ -725,16 +726,15 @@ def _basis_like(v: torch.Tensor, u: torch.Tensor, states: torch.Tensor
     tracer keeps on the CPU so a long run does not hold activations in GPU memory. The
     edit then applies it to the LIVE tensor, which is on the model's device. Every
     matmul between the two has to cross that boundary, and doing it in one place rather
-    than at each call site is the only way to be sure none was missed -- a device
-    mismatch here is not a wrong number, it is a crash mid-run, which is how this was
-    found.
+    than at each call site is the only way to be sure none was missed. A device
+    mismatch here is not a wrong number, it is a crash mid-run.
     """
     return (_unit(v).to(device=states.device, dtype=torch.float32),
             _unit(u).to(device=states.device, dtype=torch.float32))
 
 
 def _angle_from_vstar_deg(states: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
-    """Each token's actual angle to v*, in degrees -- the quantity theta acts on.
+    """Each token's actual angle to v*, in degrees: the quantity theta acts on.
 
     This is not theta. theta is how far the plane was turned; this is where the token
     ended up, and the two differ because a token starts at its own angle to v* and only
@@ -807,7 +807,7 @@ def _plane_shares(states: torch.Tensor, v: torch.Tensor, u: torch.Tensor
     alignment the token ends up with.
 
     A high-alignment register token therefore has ``in_plane_energy_share`` of at least
-    :math:`\cos^2 \approx 0.96` for **any** choice of :math:`u` -- which is why the sum
+    :math:`\cos^2 \approx 0.96` for **any** choice of :math:`u`, which is why the sum
     says almost nothing about whether a given :math:`u` is interesting, and why
     ``b2_share`` is the column that does.
     """
@@ -896,12 +896,12 @@ def make_edit(condition: Condition, *, direction: torch.Tensor, token_ids: Seque
     r"""Build the single token edit for one condition.
 
     **Hook ordering is not left to chance.**  Ablation and rescue are composed inside
-    *one* edit function, applied in a fixed order --
+    *one* edit function, applied in a fixed order:
 
     1. zero the dominant coordinate at the frozen tokens (``ablate_channel``);
     2. then apply the rescue to the result of step 1.
 
-    -- so there is no dependence on the order PyTorch happens to fire two hooks, and no
+    So there is no dependence on the order PyTorch happens to fire two hooks, and no
     way for a future caller to install them the other way round.  The rescue target
     always comes from the **paired clean trajectory** at the same ``(step, layer)``,
     never from the ablated run: ``alpha`` measured after the ablation is exactly the
@@ -964,10 +964,10 @@ def make_edit(condition: Condition, *, direction: torch.Tensor, token_ids: Seque
 
         # ---- step 1b: the true rotation, if this condition rotates
         #
-        # Deliberately exclusive with the beta/gamma branch below. Rotating and rescaling
+        # Exclusive with the beta/gamma branch below. Rotating and rescaling
         # in one condition would leave neither measurable: a norm change and an angle
-        # change both move cos(x, v*), and the arm exists to vary the angle at a norm
-        # that is fixed by the operator rather than by a correction.
+        # change both move cos(x, v*), and this arm varies the angle at a norm that is
+        # fixed by the operator rather than by a correction.
         if condition.edit_direction == "rotation":
             plane = (planes or {}).get((int(ctx.step), int(ctx.layer)))
             if plane is None:
@@ -1113,8 +1113,8 @@ def make_edit(condition: Condition, *, direction: torch.Tensor, token_ids: Seque
             note["onmanifold_clean_p10"] = subspace["clean_share_p10"]
             note["onmanifold_rank"] = subspace["rank"]
             # The diagnostic only discriminates when the subspace is a genuine restriction.
-            # Where the requested rank approaches the width -- a narrow model, or a rank set
-            # too high -- it captures everything and every state looks on-manifold. The
+            # Where the requested rank approaches the width (a narrow model, or a rank set
+            # too high) it captures everything and every state looks on-manifold. The
             # variance it explains is recorded so that case is visible rather than read as
             # a result.
             note["onmanifold_variance_explained"] = subspace["variance_explained"]
@@ -1135,7 +1135,7 @@ def make_edit(condition: Condition, *, direction: torch.Tensor, token_ids: Seque
         # not control for the resulting distance from clean: the v* rescue spends its
         # budget moving back toward the clean state, while the orthogonal control spends
         # the same budget moving sideways. Starting a distance d from clean and adding an
-        # orthogonal step of length d lands at sqrt(2).d -- further from clean than the
+        # orthogonal step of length d lands at sqrt(2).d, further from clean than the
         # ablation alone. A condition with ratio > 1 is not a matched null; it is a larger
         # perturbation than the damage it is meant to control for, and any downstream
         # "recovery" it shows has to be read in that light.
@@ -1146,15 +1146,14 @@ def make_edit(condition: Condition, *, direction: torch.Tensor, token_ids: Seque
             note["clean_state_l2"] = float(reference.pow(2).sum().sqrt())
             # Zero at the first edited layer, where the incoming state IS the clean one.
             # Nonzero at later layers of a windowed edit, because upstream edits have
-            # already moved the trajectory -- which is a fact worth having rather than an
-            # error.
+            # already moved the trajectory: a fact worth having rather than an error.
             note["distance_from_clean_incoming_l2"] = incoming
             note["distance_from_clean_after_ablation_l2"] = damaged
             note["distance_from_clean_after_rescue_l2"] = final
             # The ratio compares a rescue against the damage it is meant to undo, so it
             # is defined only where there is damage to undo. For a grid cell or a control
-            # that never ablates, `damaged` is just the incoming state -- zero at the
-            # first edited layer -- and the ratio would be a division by nothing dressed
+            # that never ablates, `damaged` is just the incoming state, zero at the
+            # first edited layer, and the ratio would be a division by nothing dressed
             # up as a finding. Those conditions get the absolute gap and no ratio.
             #
             # Below 1: the rescue moved the state back toward the clean trajectory.
@@ -1207,15 +1206,15 @@ def sink_readout(observation, *, n_tokens: int, threshold: float,
     least ``threshold`` times the uniform share ``1/N`` of the image->image attention
     mass, and ``metrics.layer_table`` applies it to a layer's head-max.  The same rule is
     applied here per token, so ``is_sink`` means exactly what it means everywhere else in
-    this project.  ``n_sink_heads`` is the repository's other notion -- how many heads
-    take this token as their strongest image key -- and both are reported because they
+    this project. ``n_sink_heads`` is the repository's other notion (how many heads
+    take this token as their strongest image key), and both are reported because they
     are not the same question.
 
     ``absolute=True`` scores against uniform over the **whole** key sequence instead,
     undoing the image-only renormalisation.  The two answer different questions, and the
     difference matters as soon as a condition moves attention off the image.  The default
     is a share of the image-directed mass, so it is *exactly* invariant to a virtual
-    register drawing mass proportionally -- the quantity it divides out is precisely the
+    register drawing mass proportionally: the quantity it divides out is precisely the
     mass the register took, which makes it unable to show a register taking sink duty
     away from the tokens that held it.  ``absolute=True`` registers that loss.  Neither
     is inflated by the register's presence; the relative one simply cannot see it.
@@ -1343,7 +1342,7 @@ def population_rows(trace: Trace, clean: Trace, treatment: Treatment, *,
     """Whole-population readouts: does the high-norm state still exist at all?
 
     ``highnorm_retention`` is the fraction of the *clean* high-norm tokens that are still
-    high-norm under treatment -- a paired quantity, so a condition that destroys the
+    high-norm under treatment: a paired quantity, so a condition that destroys the
     population and a condition that relocates it do not score the same.
     """
     rows: List[Dict[str, Any]] = []
@@ -1381,7 +1380,7 @@ def population_rows(trace: Trace, clean: Trace, treatment: Treatment, *,
                 is_register_zone=(None if not register else bool(int(layer) in register)),
                 norm_threshold=float(norm_threshold),
                 n_highnorm=int(loud.sum()),
-                # `n_highnorm` is pinned along the beta axis by construction -- beta
+                # `n_highnorm` is pinned along the beta axis by construction: beta
                 # renormalises every treated token, so no count defined by a norm
                 # threshold alone can move. That makes it a positive control rather than
                 # an endpoint. This is the population count that CAN move, and it is the
@@ -1434,12 +1433,12 @@ def population_rows(trace: Trace, clean: Trace, treatment: Treatment, *,
                     if reference.cosine is not None and ids:
                         clean_cosine = reference.cosine.float()[ids]
                         # SIGNED, to match `selected_cosine_mean`, which is also signed.
-                        # The two are compared directly -- at beta = gamma = 1 they must be
-                        # equal, since that cell is a no-op -- and mixing a mean of
+                        # The two are compared directly: at beta = gamma = 1 they must be
+                        # equal, since that cell is a no-op, and mixing a mean of
                         # absolute values with a mean of signed ones breaks that identity
                         # wherever the register population has mixed signs. The sign is
                         # also the whole content of a negative beta, so taking |cos| here
-                        # would hide the effect the depth sweep exists to measure.
+                        # would hide the effect the depth sweep is meant to measure.
                         row["clean_cosine_signed"] = float(clean_cosine.mean())
                         # ABSOLUTE, for the ceiling: |cos| approaches 1 asymptotically in
                         # beta, so the room left to move is 1 - |cos| regardless of sign.
@@ -1462,7 +1461,7 @@ def population_rows(trace: Trace, clean: Trace, treatment: Treatment, *,
                     # resolvable. In the dissolution zone the register projection
                     # collapses toward zero by construction, so the denominator vanishes
                     # and a mean-of-ratios over depth is dominated by whichever layer
-                    # happened to divide by the smallest number -- which can turn a large
+                    # happened to divide by the smallest number, which can turn a large
                     # perturbation into a spurious "400% recovery". The ratio is therefore
                     # reported only where the clean mean clears the ordinary spread, and
                     # `recovery_denominator_resolvable` says where that was.
@@ -1615,7 +1614,7 @@ class ControlSurfaceConfig:
     # Storing the attention keys is the only way to report a key norm, and it is far more
     # expensive than it sounds: the tracer's key_layers path keeps the keys, the queries,
     # AND the full attention probabilities and logits, which are O(heads x tokens x
-    # sequence). At FLUX's 512px shapes that is ~312 MB *per layer-step* -- 6.6 GB over
+    # sequence). At FLUX's 512px shapes that is ~312 MB *per layer-step*, 6.6 GB over
     # the register window, on top of the model's own 24 GB. It is opt-in, and
     # `store_keys_layers` caps how many layers it applies to so a stray True cannot OOM
     # a run. qk_score and qk_rank need none of this; they come from the cheap
@@ -1636,7 +1635,7 @@ class ControlSurfaceConfig:
         layer ranges, so a checkpoint with a different geometry gets the corresponding
         layers rather than FLUX's numbers:
 
-        ``birth``        one layer inside the writer range, before it ends -- the state is
+        ``birth``        one layer inside the writer range, before it ends; the state is
                          still being written. FLUX 18, PixArt-Sigma 9.
         ``boundary``     the first register layer, which is what ``write`` already uses and
                          where the main grid was run. FLUX 20, PixArt-Sigma 10.
@@ -1711,7 +1710,7 @@ _DEPTH_SCOPES: Dict[str, str] = {
     "established": "four layers into the register zone, where the state is maintained",
     # The writer range block by block. Editing "the writer phase" at one layer says
     # nothing about which writer layer matters, and on FLUX the range spans the
-    # dual/single boundary -- 17 and 18 are MMDiT blocks, 19 is a fused single block --
+    # dual/single boundary: 17 and 18 are MMDiT blocks, 19 is a fused single block,
     # so the three are not interchangeable even in architecture.
     "writer+0": "the first writer layer",
     "writer+1": "the second writer layer",
@@ -1728,7 +1727,7 @@ _LIFE_STAGE_SCOPES: Tuple[str, ...] = ("birth", "boundary", "established")
 #   "birth"            -> the config's point, which is BLOCK_INPUT: the tensor the block
 #                         receives, BEFORE attention and before the feed-forward.
 #   "birth_postmlp"    -> BLOCK_OUTPUT: the block's returned hidden states, which for a
-#                         transformer block is x + attn + mlp -- i.e. AFTER the
+#                         transformer block is x + attn + mlp, i.e. AFTER the
 #                         feed-forward's residual addition. An edit here cannot be
 #                         rewritten by this block's own MLP, because the MLP has run.
 _SCOPE_POINTS: Dict[str, InterventionPoint] = {"postmlp": InterventionPoint.BLOCK_OUTPUT}
@@ -1738,7 +1737,7 @@ def split_scope(scope: str) -> Tuple[str, Optional[InterventionPoint]]:
     """Separate a scope name from the intervention point its suffix names.
 
     Returns ``(base, point)`` where ``point`` is None when the scope does not override
-    the configuration's own point -- which is every scope that existed before the
+    the configuration's own point, which is every scope that existed before the
     writer-phase diagnostic, so their behaviour is unchanged by construction.
     """
     for suffix, point in _SCOPE_POINTS.items():
@@ -1810,7 +1809,7 @@ def stage_rows(trace: Trace, *, direction: torch.Tensor, token_ids: Sequence[int
     """The treated tokens' alignment at four stages around one edited block.
 
     This exists because an edit installed at ``BLOCK_INPUT`` and a readout taken at the
-    block *output* are separated by the whole block, feed-forward included -- so a writer
+    block *output* are separated by the whole block, feed-forward included, so a writer
     layer can rewrite the edited component and the readout returns the clean value while
     the edit was applied perfectly. The four stages separate the two:
 
@@ -1822,7 +1821,7 @@ def stage_rows(trace: Trace, *, direction: torch.Tensor, token_ids: Sequence[int
                           edit's effect at that site with nothing else moving.
     ``after_edit``        the installer's own ``x_post_hook`` record: the tensor the edit
                           returned, whichever site it was installed at.
-    ``after_next_block``  the following block's output -- how much of the edit survives
+    ``after_next_block``  the following block's output: how much of the edit survives
                           one more block of processing.
     """
     unit = direction.float() / direction.float().norm().clamp_min(1e-12)
@@ -1852,7 +1851,7 @@ def stage_rows(trace: Trace, *, direction: torch.Tensor, token_ids: Sequence[int
         order = _FORWARD_ORDER.get(point.value, {}).get(name)
         rows.append(dict(stage=name, stage_index=STAGE_ORDER.index(name),
                          # The order the forward pass actually reaches this stage under
-                         # THIS edit point -- sort on it, not on stage_index, or the
+                         # THIS edit point. Sort on it, not on stage_index, or the
                          # block's response to the edit reads as its cause.
                          forward_order=order if order is not None else -1,
                          is_after_the_edit=(None if order is None else
@@ -1869,8 +1868,8 @@ def _supported_layers(ctx: QuestionContext, point: InterventionPoint,
                       layers: Sequence[int]) -> List[int]:
     """Layers whose block actually advertises this point.
 
-    FLUX's writer range straddles the dual/single boundary -- 17 and 18 are MMDiT blocks
-    and 19 is a fused single block with no post-attention stage before the feed-forward --
+    FLUX's writer range straddles the dual/single boundary: 17 and 18 are MMDiT blocks
+    and 19 is a fused single block with no post-attention stage before the feed-forward,
     so ``pre_mlp_residual`` exists at two of the three. Asking for it at the third would
     raise; a stage table with one column missing and a reason is the better answer.
     """
@@ -1947,7 +1946,7 @@ class ControlSurfaceResult:
     # One row per (rotation target, angle), present only when `run_rotation` is on.
     rotation: pd.DataFrame = field(default_factory=pd.DataFrame)
     # Each treated token's real (v*, u) coordinates before and after the rotation, which
-    # is what the plane figure is drawn from -- measured activations, not a schematic.
+    # is what the plane figure is drawn from: measured activations, not a schematic.
     rotation_plane: pd.DataFrame = field(default_factory=pd.DataFrame)
     verdict: str = ""
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -2028,8 +2027,8 @@ def _analysis_code_digest() -> str:
     A cached cell is only reusable if the code that wrote it would write the same thing
     today.  Adding a diagnostic to the edit hook, changing how a population row is
     computed, or fixing a rescue operator all leave the config identical and the numbers
-    different -- and the cache would serve the old rows, silently, with columns a new
-    analysis cell expects to be there.  That is exactly how a run reports "diagnostics are
+    different, and the cache would serve the old rows, silently, with columns a new
+    analysis cell expects to be there. That is how a run can report "diagnostics are
     missing" while the code that emits them is sitting in the checkout.
 
     Hashed by *source text*, not by git SHA: a commit that touches only a notebook or a
@@ -2051,14 +2050,14 @@ def _analysis_code_digest() -> str:
 def experiment_fingerprint(ctx: QuestionContext, config: "ControlSurfaceConfig") -> str:
     """A hash of everything that would change a cell's numbers.
 
-    The resume cache is keyed by scope, condition, prompt and seed -- which is what
+    The resume cache is keyed by scope, condition, prompt and seed, which is what
     identifies a *cell*, not what identifies the *experiment*. Widening the grid, changing
     the treatment rule, moving the edit point or pointing at a different channel all
     produce the same cell ids with different meanings, and a resumed run would mix them
     without a word. Every cell therefore records this fingerprint, and a cell whose
     fingerprint does not match is recomputed.
 
-    Deliberately excludes the things that cannot change a number: output paths, whether
+    Excludes the things that cannot change a number: output paths, whether
     images are saved, the difference-map amplification, and the resume flag itself.  It
     *includes* a digest of the analysis code, because a code change is the one way a cell
     can become stale while every setting still matches.
@@ -2147,7 +2146,7 @@ def run_control_surface(ctx: QuestionContext, config: ControlSurfaceConfig
                 "as editing the conditional row.")
     edit_layers = sorted({l for s in scopes for l in config.layers_for(ctx, s)})
     # A scope may name where in the block its edit lands, so the clean pass has to probe
-    # each point that will be hooked -- reading a block output and writing it into a
+    # each point that will be hooked. Reading a block output and writing it into a
     # block input would transplant a state across a residual update.
     layers_by_point: Dict[InterventionPoint, List[int]] = {}
     for scope in scopes:
@@ -2229,7 +2228,7 @@ def run_control_surface(ctx: QuestionContext, config: ControlSurfaceConfig
             states_by_point[point] = found
             # One SVD per (step, layer) per unit, reused by every condition: the subspace
             # is a property of the clean pass, so refitting it per condition would be both
-            # wasteful and wrong -- a treated run would be judged against its own
+            # wasteful and wrong: a treated run would be judged against its own
             # distortion.
             subspaces_by_point[point] = (
                 {key: clean_subspace(state, rank=config.manifold_rank)
@@ -2542,7 +2541,7 @@ def gap_closed(means: pd.Series, *, damaged: str = "channel_ablate",
     by layer and by how much of ``v*`` the dominant channel actually carries.
 
     1.0 means fully rescued, 0.0 means the rescue did nothing, and the denominator is
-    reported as ``nan`` when the ablation did no damage -- which is a fact about the
+    reported as ``nan`` when the ablation did no damage, which is a fact about the
     ablation, not a failure of the rescue.
     """
     if damaged not in means.index or clean not in means.index:
@@ -2559,8 +2558,8 @@ def rescue_effects(population: pd.DataFrame, images: Optional[pd.DataFrame] = No
     """Each rescue against the ablation, with the project's prompt-clustered interval.
 
     Uses :func:`ditsinks.causal_stats.paired_effect` rather than a standard error across
-    units, for two reasons.  It is paired within unit, so prompt-to-prompt variation --
-    which is large and uninteresting -- cancels instead of inflating the spread.  And it
+    units, for two reasons.  It is paired within unit, so prompt-to-prompt variation,
+    which is large and uninteresting, cancels instead of inflating the spread.  And it
     clusters by prompt, so two seeds of one prompt are not counted as two independent
     observations.
 
@@ -2569,7 +2568,7 @@ def rescue_effects(population: pd.DataFrame, images: Optional[pd.DataFrame] = No
     would answer a different one.
 
     ``bootstrap_mean`` declines to produce an interval below three clusters, and that
-    refusal is passed through here rather than papered over -- an underpowered run must
+    refusal is passed through here rather than papered over: an underpowered run must
     not be able to buy a confidence interval.
     """
     from . import causal_stats as CST
@@ -2623,7 +2622,7 @@ def displacement_report(diary: pd.DataFrame) -> pd.DataFrame:
 
     Read this before any rescue comparison.  Matching the *injection* L2 between a rescue
     and its orthogonal control matches the effort spent, which is the right way to control
-    for effort -- but it does not match the resulting distance from the clean state.  A
+    for effort, but it does not match the resulting distance from the clean state.  A
     rescue spends its budget moving back; an orthogonal step of the same length spends it
     moving sideways and lands at ``sqrt(2)`` times the gap, further away than the damage
     it controls for.
@@ -2724,7 +2723,7 @@ def depth_response(population: pd.DataFrame, images: Optional[pd.DataFrame] = No
                             on=keys, how="left")
 
     if {"realised_cosine", "clean_cosine"} <= set(table.columns):
-        # Both signed, so this is zero at beta = 1 by construction -- which is the check
+        # Both signed, so this is zero at beta = 1 by construction: the check
         # that the two quantities are commensurable at all.
         table["cosine_gain"] = table["realised_cosine"] - table["clean_cosine"]
         if "clean_cosine_abs" in table.columns:
@@ -2827,7 +2826,7 @@ def rotation_response(diary: pd.DataFrame, population: Optional[pd.DataFrame] = 
 def _axis_span(frame: pd.DataFrame, column: str, *, axis: str) -> float:
     """Range of ``column`` along one grid axis with the other held at its neutral value.
 
-    This is the direct comparison the 2D grid exists to make: how much the outcome moves
+    This is the direct comparison the 2D grid makes: how much the outcome moves
     when alignment varies at fixed magnitude, against how much it moves when magnitude
     varies at fixed alignment.  Both are read off the same surface, in the same units.
     """
@@ -2881,7 +2880,7 @@ def verdict(frames: Dict[str, pd.DataFrame], meta: Dict[str, Any]) -> str:
 
         Averaging a recovery fraction over layers *before* the intervention pulls every
         condition toward 1, because nothing upstream can have moved. The untouched layers
-        stay in the saved tables -- they are the placebo check below -- but no summary may
+        stay in the saved tables (they are the placebo check below) but no summary may
         average over them.
         """
         if frame.empty or "is_downstream" not in frame.columns:

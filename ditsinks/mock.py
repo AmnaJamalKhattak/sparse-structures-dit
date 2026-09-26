@@ -2,9 +2,9 @@
 
 Purpose: render and sanity-check every figure without a GPU, and let a reader
 see what the analysis produces before spending an hour of compute. The numbers
-here are invented -- shaped to match published FLUX behaviour (registers born in
+here are invented, shaped to match published FLUX behaviour (registers born in
 the late dual blocks, sinks switching on at the dual->single boundary, one
-dominant activation channel) -- and are never used for any claim.
+dominant activation channel), and are never used for any claim.
 
 `ditsinks.synthetic` is the opposite tool: real diffusers blocks, real hooks,
 fake weights. Use that one to test the capture code.
@@ -222,13 +222,13 @@ CAUSAL_MOCK_BANNER = ("MOCK CAUSAL RESULT - shapes, figures and statistics only.
 
 def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: int = 20,
                                last_layer: int = 40, rng_seed: int = 0):
-    """Q1--Q6 result bundles with the structure of a real run, but invented numbers.
+    """Causal-question result bundles (q1..q6) with the structure of a real run, but invented numbers.
 
     Two uses: render and check every causal figure without a GPU, and let a reader
-    see the shape of the answer before spending compute.  The effect sizes below
-    are drawn from what the workshop paper already reports, so the mock looks like
-    a plausible result rather than noise -- which is exactly why it must never be
-    mistaken for one.  Every returned bundle is tagged in ``meta['mock']``.
+    see the shape of the answer before spending compute. The effect sizes below
+    are set to plausible magnitudes so the mock looks like a real result rather
+    than noise, which is exactly why it must never be mistaken for one. Every
+    returned bundle is tagged in ``meta['mock']``.
     """
     from .questions import (Q1_CONDITIONS, Q2_TARGET_LABELS, Q5_POSITION_LABELS, Q5_STAGES,
                             Q6_CONDITIONS, QuestionResult, _q1_verdict, _q2_verdict, _q3_verdict,
@@ -239,7 +239,7 @@ def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: in
     units = [(p, s) for p in range(prompts) for s in range(seeds)]
     noise = lambda scale=0.03: float(rng.normal(0, scale))
 
-    # ---- Q1 -----------------------------------------------------------------
+    # ---- natural-register removal -------------------------------------------
     retention = {"sham": 0.95, "direction_removal": 0.24, "matched_ordinary_state": 0.19,
                  "ordinary_norm_clamp": 0.86, "state_zeroed": 0.12,
                  "random_tokens_zeroed": 0.93, "norm_matched_tokens_zeroed": 0.90,
@@ -302,7 +302,7 @@ def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: in
     q1 = QuestionResult("q1", pd.DataFrame(rows), {"fates": pd.DataFrame(fates)})
     q1.verdict = _q1_verdict(q1.tables["fates"], q1.tidy)
 
-    # ---- Q2 -----------------------------------------------------------------
+    # ---- dominant-channel scaling -------------------------------------------
     dose_rows = []
     for target in Q2_TARGET_LABELS:
         gammas = ([0.0, 0.1, 0.25, 0.5, 0.75, 1.0, 1.5] if target == "dominant_channel" else [0.0])
@@ -327,7 +327,7 @@ def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: in
     q2 = QuestionResult("q2", pd.DataFrame(dose_rows), {"dose_response": pd.DataFrame(dose_rows)})
     q2.verdict = _q2_verdict(q2.tables["dose_response"])
 
-    # ---- Q3 -----------------------------------------------------------------
+    # ---- direction destruction and recovery ---------------------------------
     q3_rows, recovery_rows = [], []
     schedules = {"single_shot": ("same_position", 0.58), "repeated": ("none", 0.7)}
     for scope, (leading, share) in schedules.items():
@@ -353,7 +353,7 @@ def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: in
     q3 = QuestionResult("q3", pd.DataFrame(q3_rows), {"recovery": pd.DataFrame(recovery_rows)})
     q3.verdict = _q3_verdict(q3.tables["recovery"])
 
-    # ---- Q4 -----------------------------------------------------------------
+    # ---- upstream feature patching ------------------------------------------
     features = {"pre_mlp_residual": ("Pre-feed-forward residual", 0.46, -0.41, 0.86),
                 "feedforward_activation": ("Feed-forward hidden activation", 0.31, -0.28, 0.79),
                 "modulated_stream": ("Timestep-modulated normalised stream", 0.05, -0.03, 0.52),
@@ -386,7 +386,7 @@ def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: in
                          "separation": pd.DataFrame(separation_rows)})
     q4.verdict = _q4_verdict(q4.tables["patch_effects"], q4.tables["separation"], {})
 
-    # ---- Q5 -----------------------------------------------------------------
+    # ---- sufficiency factorization ------------------------------------------
     rates = {"direction_at_ordinary_norm": 0.09, "direction_at_register_norm": 0.17,
              "full_residual_state": 0.38, "normalised_residual_state": 0.58,
              "key_before_position": float("nan"), "final_key": 0.84}
@@ -395,19 +395,18 @@ def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: in
         supported = not math.isnan(rates[stage.key])
         for position, factor in (("natural_register", 1.0), ("adjacent_patch", 0.72),
                                  ("random_ordinary", 0.55)):
-            # Once the final key itself is transplanted, position stops mattering --
-            # which is the whole point of the last rung, so the mock reflects it.
+            # Once the final key itself is transplanted, position stops mattering,
+            # so the mock sets the position factor near 1 for that stage.
             factor = 0.97 if stage.key == "final_key" else factor
             for prompt_id, seed in units:
                 base = rates[stage.key]
                 value = float("nan") if math.isnan(base) else float(
                     np.clip(base * factor + noise(0.03), 0, 1))
-                # The repaired Q5 schema: an exact-recipient clean baseline
-                # (`matched_clean_rate`) is what a single-token transplant can be
-                # compared against, while the any-register rate is context only --
-                # they have different numerators and mixing them was the audit's
-                # critical Q5 finding. `temporal_endpoint` separates the operation
-                # itself from later-layer persistence.
+                # An exact-recipient clean baseline (`matched_clean_rate`) is what a
+                # single-token transplant can be compared against, while the
+                # any-register rate is context only: the two have different
+                # numerators and should not be mixed. `temporal_endpoint` separates
+                # the operation itself from later-layer persistence.
                 for transfer_mode in (("self_patch",) if position == "natural_register"
                                       else ("copy", "move")):
                     ladder_rows.append(dict(
@@ -426,7 +425,7 @@ def make_mock_question_results(prompts: int = 8, seeds: int = 3, first_layer: in
                                                "not exposed as a separable module")
                                        for s in Q5_STAGES})
 
-    # ---- Q6 -----------------------------------------------------------------
+    # ---- dissolution --------------------------------------------------------
     shifts = {"sham": 0.0, "competing_channel_suppressed": 2.6,
               "competing_channel_amplified_early": -1.9, "direction_refreshed": 0.7,
               "random_channel_suppressed": 0.1, "matched_energy_removed": 0.2}

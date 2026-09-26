@@ -130,7 +130,7 @@ def _register_rows(result, layers: Optional[Sequence[int]], ratio: float
 def _fit_direction(vectors: Sequence[torch.Tensor]) -> Tuple[torch.Tensor, float, np.ndarray]:
     """Top right-singular vector of the unit-vector matrix.
 
-    SVD is the sign-free way to ask "is there one shared axis?" -- it maximises
+    SVD is the sign-free way to ask "is there one shared axis?". It maximises
     the mean squared cosine, so a population split into +v and -v still resolves
     to one axis instead of averaging to zero.
     """
@@ -159,8 +159,8 @@ def fit_vstar(result, layers: Optional[Sequence[int]] = None, ratio: Optional[fl
     fell_back = False
     if len(regs) < 3 and fallback:
         # No token clears the high-norm bar anywhere. Fit on the loudest tokens
-        # instead so the rest of the analysis still runs -- but say so, loudly:
-        # "the loudest tokens share a direction" is a much weaker statement.
+        # instead so the rest of the analysis still runs, but flag it: fell_back
+        # marks that "the loudest tokens share a direction" is a weaker statement.
         fell_back = True
         layers = sorted({r.layer for r in result.records.values()})
         regs, meta, ctrls = _register_rows(result, layers, 0.0)
@@ -306,7 +306,7 @@ def direction_score(rec: LayerRecord, v: torch.Tensor) -> Tuple[Optional[torch.T
     """Approximate x . v* for every token, using the stored loud-channel columns.
 
     Returns (scores [N], coverage) where coverage is the share of v*'s energy
-    inside those channels -- report it, do not hide it.
+    inside those channels; always report it alongside the scores.
     """
     if rec.channel_top_ids is None or rec.channel_top_values is None:
         return None, 0.0

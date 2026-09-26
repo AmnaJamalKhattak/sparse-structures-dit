@@ -4,10 +4,10 @@ This is the seam the Virtual Register experiment needs: a memory slot that queri
 attend to but that corresponds to no image patch and is never decoded spatially. It sits
 *after* QK-norm and RoPE, which is what makes an appended row genuinely position-free.
 
-The first version of this took a concatenated tensor from the caller and appended to the
-head axis on FLUX, because diffusers hands that kernel [B, S, H, D] and the assumption
-was [B, H, S, D]. The contract now has the transform return only the rows to add, and one
-function resolves the axis -- so these tests are mostly about that contract holding.
+The transform returns only the rows to add, not a concatenated tensor, and one
+function resolves the sequence axis (diffusers hands the FLUX kernel [B, S, H, D] and
+the generic Attention path [B, H, S, D]), so these tests are mostly about that contract
+holding.
 """
 import math
 

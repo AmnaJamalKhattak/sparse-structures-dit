@@ -1,5 +1,5 @@
-"""ditsinks.paper_figures: Figure 1 is drawn from one traced generation per model, and the
-retiming grid from a Q16 unit folder and its frozen protocol."""
+"""ditsinks.paper_figures: the main figure is drawn from one traced generation per model, and the
+retiming grid from a register-retiming unit folder and its frozen protocol."""
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -272,7 +272,7 @@ def test_caption_macros_are_the_figures_numbers(tmp_path):
 
 
 def _population():
-    """A Q13 rotation population: layer 18 edited, layers 20-23 the register zone, and
+    """A rotation population: layer 18 edited, layers 20-23 the register zone, and
     layer 19 outside it; retention falls with the angle."""
     import pandas as pd
     rows = []

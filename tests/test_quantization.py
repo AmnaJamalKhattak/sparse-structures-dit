@@ -1,8 +1,8 @@
 """The quantization comparison is only worth running if it is fair.
 
 These tests are mostly about fairness rather than about plumbing.  The headline
-question -- does preserving ``v*`` beat preserving large activations at the same
-budget -- is easy to answer accidentally in the affirmative by handicapping the
+question, does preserving ``v*`` beat preserving large activations at the same
+budget, is easy to answer accidentally in the affirmative by handicapping the
 control, so the properties that keep the controls strong are asserted here.
 """
 import math
@@ -77,7 +77,7 @@ def test_an_axis_aligned_vstar_collapses_onto_channel_protection(outlier_states)
 
     When ``v*`` is a single coordinate, protecting the direction and protecting that
     channel are the same operation.  The experiment must be able to show that, because
-    a reviewer will otherwise read the v* result as ordinary outlier protection.
+    a reader will otherwise read the v* result as ordinary outlier protection.
     """
     direction = torch.zeros(outlier_states.shape[-1])
     direction[7] = 1.0

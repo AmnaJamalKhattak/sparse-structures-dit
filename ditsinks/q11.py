@@ -1,4 +1,4 @@
-"""Q11.1 -- lifecycle-aware register-preserving quantization.
+"""Lifecycle-aware register-preserving quantization.
 
 The question this runner answers is narrow and stated in one line:
 
@@ -20,7 +20,7 @@ quantized and no low-bit kernel is involved, so **end-to-end latency is not clai
 Two cost claims *are* supported and are computed in :mod:`ditsinks.cost_model`: the
 activation footprint, which is exact arithmetic over the bit allocation, and the ceiling
 on any speedup an activation policy could reach, which is Amdahl over memory traffic.  The
-second is what keeps the first honest -- at batch one a diffusion transformer is heavily
+second is needed to interpret the first: at batch one a diffusion transformer is heavily
 weight-bound, so the memory result is real while the latency result would be near zero
 however good the kernels were.
 """
@@ -54,8 +54,8 @@ def lifecycle_windows(ctx: QuestionContext, *,
     """The register window, and the equally sized wrong windows it must beat.
 
     ``preregistered`` is the discovery artifact's register range, chosen before any of
-    these runs existed.  ``measured`` is the empirically observed lifetime when Q6 has
-    supplied one; it is reported beside the preregistered window rather than replacing
+    these runs existed.  ``measured`` is the empirically observed lifetime when the
+    dissolution experiment has supplied one; it is reported beside the preregistered window rather than replacing
     it, because a window fitted on the same runs it is evaluated on invites exactly the
     selection objection this comparison is meant to answer.
 
@@ -78,12 +78,12 @@ def lifecycle_windows(ctx: QuestionContext, *,
 
 
 def measured_window_from_q6(q6: Optional[QuestionResult], ctx: QuestionContext) -> List[int]:
-    """The empirically active register window implied by Q6's clean lifetimes.
+    """The empirically active register window implied by the dissolution experiment's clean lifetimes.
 
-    Q6 records, per unit, the last layer at which the frozen register carriers are still
-    both high-norm and aligned.  The window runs from the first register layer to the
-    median of that endpoint, which is a summary of where the state demonstrably exists
-    rather than where it was predeclared to exist.  Returns ``[]`` when Q6 has not run,
+    The dissolution experiment records, per unit, the last layer at which the frozen register
+    carriers are still both high-norm and aligned.  The window runs from the first register layer
+    to the median of that endpoint, which is a summary of where the state demonstrably exists
+    rather than where it was predeclared to exist.  Returns ``[]`` when that experiment has not run,
     so the caller can say the measured window is unavailable instead of inventing one.
     """
     if q6 is None:
@@ -252,7 +252,7 @@ def consumed_states(trace: Trace, step: int, layer: int,
     """The activation the block actually consumed, after any installed edit.
 
     A :class:`StateProbe` is registered before the edit installer, so on a treated run
-    ``trace.probe`` returns the tensor *before* that layer's edit -- verified, not
+    ``trace.probe`` returns the tensor *before* that layer's edit. That is verified, not
     assumed.  The installer's own ``x_post_hook`` record is the tensor the module
     received, which is what a precision policy has to be judged on.  The clean run
     installs no edit, so it falls through to the probe.

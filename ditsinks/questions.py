@@ -1,21 +1,21 @@
-"""Executable answers to the six open ICLR questions.
+"""Executable answers to six causal questions about the register mechanism.
 
 Each ``run_qN`` performs the whole experiment: it runs the clean pass for one
 prompt-seed unit, freezes the targets from it, replays the identical generation
 once per condition, extracts the predeclared endpoints, and returns a tidy table
-plus a plain-language verdict.  The condition grids are the ones the research
-plan specifies, including its controls, and every grid is a data structure a
-caller can shorten (for a debug run) or extend (for a new control).
+plus a plain-language verdict.  The condition grids include their controls, and
+every grid is a data structure a caller can shorten (for a debug run) or extend
+(for a new control).
 
-The six questions, and the arrow each closes in the causal model
+The six experiments, and the arrow each closes in the causal model
 ``writer -> c* -> v* -> key geometry -> sink routing -> generation``:
 
-Q1  remove the natural register population   -> is the routing anchor causal?
-Q2  scale the dominant channel live          -> c* -> v* and routing
-Q3  destroy v* and watch the next blocks     -> is the register maintained?
-Q4  patch upstream features reciprocally     -> what selects the positions?
-Q5  climb the residual-to-key ladder         -> what makes v* sufficient?
-Q6  suppress or refresh late competition     -> what ends the state?
+``run_q1``  natural-register removal              -> is the routing anchor causal?
+``run_q2``  live dominant-channel suppression      -> c* -> v* and routing
+``run_q3``  direction destruction and recovery     -> is the register maintained?
+``run_q4``  reciprocal upstream-feature patching   -> what selects the positions?
+``run_q5``  residual-to-key sufficiency ladder     -> what makes v* sufficient?
+``run_q6``  dissolution: suppress or refresh late competition -> what ends the state?
 """
 from __future__ import annotations
 
@@ -66,10 +66,10 @@ class QuestionContext:
     output_dir: Optional[Path] = None
     progress: bool = True
     # The whole writer range, not only the layer taken from its end. A range can
-    # straddle an architectural boundary -- FLUX.1's runs between its dual and
-    # single blocks -- and a question that needs a particular kind of block has to
+    # straddle an architectural boundary (FLUX.1's runs between its dual and
+    # single blocks), and a question that needs a particular kind of block has to
     # be able to look inside the range rather than accept whichever end it landed
-    # on. Defaults to the writer layer alone, which is the old behaviour.
+    # on. Defaults to the writer layer alone.
     writer_range: Tuple[int, int] = ()
     vstar_metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -114,7 +114,7 @@ class QuestionContext:
 
     @property
     def intervention_layer(self) -> int:
-        """First clear register layer: where the ICLR plan says to intervene."""
+        """First clear register layer: where these experiments intervene."""
         return int(self.register_layers[0])
 
     def layer_exposing(self, points: Sequence[Any],
@@ -179,7 +179,7 @@ class QuestionContext:
         from .provenance import create_run_layout
         spec = self.cfg.spec
         metadata = dict(
-            notebook="notebooks/iclr_q1_q6_causal_mechanism.ipynb",
+            notebook="notebooks/causal_mechanism.ipynb",
             model=getattr(spec, "key", repr(spec)), checkpoint=getattr(spec, "repo_id", None),
             prompt_set=self.prompt_split, prompts=list(self.prompts), seeds=list(self.seeds),
             denoising_steps=[self.step], writer_layer=self.writer_layer,
@@ -213,7 +213,7 @@ class QuestionResult:
 
         A Colab runtime ending is the normal case, not the exception, so a
         completed question must be reusable without re-running it.  Everything
-        downstream -- figures, clustered statistics, the evidence table -- reads
+        downstream (figures, clustered statistics, the evidence table) reads
         only the tidy frame, the companion tables and the verdict, so a reloaded
         result is interchangeable with a freshly computed one.  The activation
         traces are not saved: a *new* endpoint still needs a new run.
@@ -454,10 +454,10 @@ def _clean_reference(ctx: "QuestionContext", clean: Trace, targets: FrozenTarget
                                     highnorm_ratio=ctx.highnorm_ratio)
 
 
-# =====================================================================  Q1
+# ======================================================  natural-register removal
 @dataclass(frozen=True)
 class Q1Condition:
-    """One Q1 row: which tokens are edited and how."""
+    """One condition row: which tokens are edited and how."""
 
     key: str
     label: str
@@ -489,13 +489,13 @@ Q1_CONDITIONS: Tuple[Q1Condition, ...] = (
 Q1_SELECTION_RULES = ("percentile", "topk")
 
 
-def run_neurips_compatibility(ctx: QuestionContext) -> QuestionResult:
-    """Reproduce the old live-selection direction-versus-magnitude semantics.
+def run_direction_magnitude_gate(ctx: QuestionContext) -> QuestionResult:
+    """Reproduce the live-selection direction-versus-magnitude semantics.
 
-    This is an acceptance gate, not an ICLR condition: targets are selected from
-    each live block input at every denoising step, exactly as ``TokenEditHook``
-    did, while the affected-head denominator is defined by the paired clean run
-    at the fixed reporting step.
+    This is an acceptance gate, not a condition of the main experiments: targets
+    are selected from each live block input at every denoising step, exactly as
+    ``TokenEditHook`` does, while the affected-head denominator is defined by the
+    paired clean run at the fixed reporting step.
     """
     layer, point = ctx.intervention_layer, InterventionPoint.BLOCK_INPUT
     tracer = ctx.tracer()
@@ -525,14 +525,14 @@ def run_neurips_compatibility(ctx: QuestionContext) -> QuestionResult:
 
         for condition in ("norm", "direction"):
             plan = EditPlan(edit=live_edit(condition), point=point, layers=[layer],
-                            label=f"neurips_compatibility_{condition}")
+                            label=f"direction_magnitude_gate_{condition}")
             treated, _ = run_traced_generation(
                 ctx.driver, tracer, prompt_id=prompt_id, prompt=prompt, seed=seed,
-                condition=f"neurips_compatibility_{condition}", plans=[plan], targets=frozen)
+                condition=f"direction_magnitude_gate_{condition}", plans=[plan], targets=frozen)
             rows = EP.measure_trace(clean, treated, frozen, layers=[layer], step=ctx.step,
                                     token_ids=frozen.register_ids, channels=ctx.channels,
                                     reference=reference)
-            frames.append(_rows_to_frame(rows, question="neurips_compatibility",
+            frames.append(_rows_to_frame(rows, question="direction_magnitude_gate",
                                          condition=condition, prompt_id=prompt_id, seed=seed,
                                          step=ctx.step))
     tidy = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
@@ -548,7 +548,7 @@ def run_neurips_compatibility(ctx: QuestionContext) -> QuestionResult:
             affected_head_pooled=float(affected["original_sink_retained"].mean()),
             n_affected_heads=int(len(affected)),
             affected_head_ids=json.dumps(sorted(set(int(v) for v in affected["head"])))))
-    return QuestionResult("neurips_compatibility", tidy,
+    return QuestionResult("direction_magnitude_gate", tidy,
                           {"summary": pd.DataFrame(summary)},
                           "Acceptance requires direction retention < norm retention.",
                           meta=dict(layer=layer, point=point.value,
@@ -656,9 +656,9 @@ def _q1_edit(condition: Q1Condition, vstar: torch.Tensor, ids: Sequence[int],
             return image.clone()
         if condition.edit == "remove_vstar":
             # Norm-preserving: x - <x,v*>v* has norm ||x||*sqrt(1-cos^2), so for a
-            # register nearly collinear with v* -- the paper's central claim --
-            # plain removal would leave the token both directionless and tiny, and
-            # the condition would stop isolating direction from magnitude.
+            # register nearly collinear with v*, plain removal would leave the token
+            # both directionless and tiny, and the condition would stop isolating
+            # direction from magnitude.
             return remove_direction(image, vstar, ids, preserve_norm=True)
         if condition.edit == "norm_clamp":
             return clamp_norm(image, ids, targets.ordinary_norm)
@@ -677,12 +677,12 @@ def _q1_edit(condition: Q1Condition, vstar: torch.Tensor, ids: Sequence[int],
 @_resumable("q1")
 def run_q1(ctx: QuestionContext, *, conditions: Sequence[Q1Condition] = Q1_CONDITIONS,
            selection_rules: Sequence[str] = Q1_SELECTION_RULES) -> QuestionResult:
-    """Q1 -- remove the natural register population and follow the sinks.
+    """Remove the natural register population and follow the sinks.
 
     The four interventions separate *which property* of the register matters:
     direction removal keeps magnitude, the norm clamp keeps direction, the
     matched-ordinary replacement removes both while injecting a realistic state,
-    and zeroing is the deliberately extreme perturbation the controls calibrate.
+    and zeroing is the extreme perturbation the controls calibrate against.
     """
     layer = ctx.intervention_layer
     point = InterventionPoint.BLOCK_INPUT
@@ -796,7 +796,7 @@ def _q1_verdict(fates: pd.DataFrame, tidy: pd.DataFrame) -> str:
             f"{control:.0%} for matched controls.")
 
 
-# =====================================================================  Q2
+# ==================================================  live dominant-channel scaling
 Q2_GAMMAS: Tuple[float, ...] = (0.0, 0.1, 0.25, 0.5, 0.75, 1.0, 1.5)
 Q2_SCOPES: Tuple[str, ...] = ("writer_only", "maintenance")
 Q2_TARGETS: Tuple[str, ...] = ("dominant_channel", "competing_channel", "unspecific_channel",
@@ -865,13 +865,12 @@ def _rng_channel(ctx: QuestionContext) -> int:
 def run_q2(ctx: QuestionContext, *, gammas: Sequence[float] = Q2_GAMMAS,
            scopes: Sequence[str] = Q2_SCOPES, targets: Sequence[str] = Q2_TARGETS,
            control_gammas: Sequence[float] = (0.0,), maintenance_span: int = 4) -> QuestionResult:
-    """Q2 -- scale the dominant channel live and follow v*, key geometry, sinks.
+    """Scale the dominant channel live and follow v*, key geometry, sinks.
 
-    The channel's arithmetic role in the high-norm signature is already known;
-    what is open is whether suppressing it *during* the forward pass propagates.
-    ``writer_only`` tests a single write, ``maintenance`` keeps suppressing it
-    through the register zone, which separates a one-off write from a state the
-    later blocks keep rebuilding.
+    This tests whether suppressing the channel *during* the forward pass
+    propagates downstream. ``writer_only`` tests a single write, ``maintenance``
+    keeps suppressing it through the register zone, which separates a one-off
+    write from a state the later blocks keep rebuilding.
     """
     point = InterventionPoint.WRITER_RESIDUAL
     writer = ctx.writer_layer
@@ -995,7 +994,7 @@ def _q2_verdict(dose: pd.DataFrame) -> str:
             f"sweep; the gamma=1 sham gives {_fmt(sham)}), which is {beats}. " + tail)
 
 
-# =====================================================================  Q3
+# ==============================================  direction destruction and recovery
 Q3_SCOPES: Tuple[str, ...] = ("single_shot", "fixed_carrier_repeated",
                               "dynamic_register_state")
 
@@ -1003,9 +1002,9 @@ Q3_SCOPES: Tuple[str, ...] = ("single_shot", "fixed_carrier_repeated",
 @_resumable("q3")
 def run_q3(ctx: QuestionContext, *, scopes: Sequence[str] = Q3_SCOPES,
            rescue_layers: Optional[Sequence[int]] = None, max_rescues: int = 3) -> QuestionResult:
-    """Q3 -- destroy v* at its natural home and watch whether it comes back.
+    """Destroy v* at its natural home and watch whether it comes back.
 
-    Magnitude is deliberately preserved, so a token that recovers cannot have
+    Magnitude is preserved, so a token that recovers cannot have
     recovered merely by shrinking.  The readout is not only *whether* the sink
     returns but *where*: the same position means a writer is bound to those
     positions, a new position means the model keeps a register function without a
@@ -1214,7 +1213,7 @@ def _q3_verdict(recovery: pd.DataFrame) -> str:
             f"'{leading.replace('_', ' ')}' -- {reading}.{when}{contrast}")
 
 
-# =====================================================================  Q4
+# ==============================================  reciprocal upstream-feature patching
 @dataclass(frozen=True)
 class Q4Feature:
     """One candidate upstream cause of register selection."""
@@ -1290,7 +1289,7 @@ def _candidate_units(states: Optional[torch.Tensor], token: int, k: int = 32) ->
 def run_q4(ctx: QuestionContext, *, features: Sequence[Q4Feature] = Q4_FEATURES,
            directions: Sequence[str] = Q4_DIRECTIONS, candidate_units: int = 32,
            layer: Optional[int] = None) -> QuestionResult:
-    """Q4 -- what selects the sparse positions that receive the register write?
+    """What selects the sparse positions that receive the register write?
 
     Two halves.  The backward-prediction half asks whether pre-writer features
     already separate eventual registers from matched ordinary tokens, and is a
@@ -1504,7 +1503,7 @@ def _q4_verdict(patches: pd.DataFrame, separation: pd.DataFrame,
     return verdict + notes
 
 
-# =====================================================================  Q5
+# ======================================================  sufficiency factorization
 @dataclass(frozen=True)
 class Q5Stage:
     """One rung of the residual-to-key ladder."""
@@ -1539,13 +1538,13 @@ Q5_POSITION_LABELS = {"natural_register": "The natural register itself",
 def run_q5(ctx: QuestionContext, *, stages: Sequence[Q5Stage] = Q5_STAGES,
            positions: Sequence[str] = Q5_POSITIONS,
            transfer_modes: Sequence[str] = ("copy", "move")) -> QuestionResult:
-    """Q5 -- where on the residual-to-key path does the register become sufficient?
+    """Where on the residual-to-key path does the register become sufficient?
 
-    Copying only the direction onto an arbitrary token is already known to fail.
+    Copying only the direction onto an arbitrary token fails to reproduce capture.
     The ladder climbs from that failure towards the tensor attention actually
     consumes; the first rung whose transplant reproduces natural capture names the
-    missing ingredient -- residual context, normalisation, positional processing,
-    or head-specific key structure.
+    missing ingredient (residual context, normalisation, positional processing,
+    or head-specific key structure).
     """
     layer = ctx.intervention_layer
     downstream = [l for l in ctx.downstream_layers if l >= layer]
@@ -1758,7 +1757,7 @@ def _q5_verdict(ladder: pd.DataFrame, support: Mapping[str, Tuple[bool, str]]) -
             f"{natural:.0%}), so {reading}." + note)
 
 
-# =====================================================================  Q6
+# ==========================================================  dissolution
 @dataclass(frozen=True)
 class Q6Condition:
     key: str
@@ -1834,10 +1833,10 @@ def _q6_edit(ctx: QuestionContext, condition: Q6Condition, ids: Sequence[int],
 
 @_resumable("q6")
 def run_q6(ctx: QuestionContext, *, conditions: Sequence[Q6Condition] = Q6_CONDITIONS) -> QuestionResult:
-    """Q6 -- what ends the register state?
+    """What ends the register state?
 
-    The lifecycle is already described; this asks whether the late-growing
-    competitor *causes* dissolution.  Suppressing it late should extend the
+    This asks whether the late-growing competitor *causes* dissolution.
+    Suppressing it late should extend the
     register's life, amplifying it early should shorten it, and a direction
     refresh at unchanged magnitude separates "the state rotates away" from "one
     channel outgrows it".
@@ -2051,8 +2050,8 @@ def run_questions(ctx: QuestionContext, questions: Sequence[str] = tuple(QUESTIO
 
 
 # ======================================================= structure interaction
-# The three sparse structures the workshop paper unified, as things you can see
-# on the image grid, and the three ways of taking one away.
+# The three sparse structures under study, as things you can see on the image
+# grid, and the three ways of taking one away.
 STRUCTURES: Tuple[Tuple[str, str], ...] = (
     ("high_norm_tokens", "High-norm tokens"),
     ("dominant_channel", "Dominant channel"),
@@ -2078,13 +2077,12 @@ STRUCTURE_NOTES = {
 # SUBTRACT is bookkeeping.  The model is never re-run: the quantity is recomputed
 # from the states the untouched pass already produced, with the structure masked
 # out of the arithmetic.  It answers "how much of what we are looking at is only
-# this structure being counted twice", and it is exact -- nothing downstream had
+# this structure being counted twice", and it is exact: nothing downstream had
 # a chance to react, so there is nothing to confound it.
 #
 # CAUSAL runs the generation again with the structure taken away, so every block
 # after the intervention is free to respond.  It answers "what does the network
-# do about it", which is the question the paper is asking, at the price of every
-# downstream reaction being part of the answer.
+# do about it", at the price of every downstream reaction being part of the answer.
 #
 # Subtraction is defined only where the measured quantity is a function of the
 # captured residual-stream states *and* the removal is a mask on those same
@@ -2217,8 +2215,8 @@ def run_structure_maps(ctx: QuestionContext, *, layer: Optional[int] = None,
                        save_images: bool = True) -> QuestionResult:
     """Remove each sparse structure in turn and map what happens to all three.
 
-    The workshop paper's claim is that high-norm tokens, the dominant channel and
-    the attention sinks are one phenomenon rather than three.  The sharpest test of
+    This tests whether high-norm tokens, the dominant channel and the attention
+    sinks are one phenomenon rather than three.  The sharpest test of
     that is not another correlation: it is to take each away and look at the other
     two on the same patches.
 
@@ -2241,9 +2239,9 @@ def run_structure_maps(ctx: QuestionContext, *, layer: Optional[int] = None,
     re-running, and once by *subtraction*, which recomputes the same quantity from
     the untouched states with the structure masked out of the arithmetic and never
     touches the model.  The pair is worth having because they disagree in an
-    informative way -- subtraction shows what the structure was contributing to
+    informative way: subtraction shows what the structure was contributing to
     the measurement, the causal run shows what the network then did about losing
-    it -- and because subtraction is free: it needs no extra generation.
+    it, and subtraction is free since it needs no extra generation.
     """
     layer = int(layer if layer is not None else ctx.intervention_layer)
     point = InterventionPoint.BLOCK_INPUT
@@ -2300,7 +2298,7 @@ def run_structure_maps(ctx: QuestionContext, *, layer: Optional[int] = None,
             edit landed and the model put the channel back", and those are
             opposite conclusions: the first is a broken intervention, the second
             is evidence of active maintenance.  Following the same patches across
-            depth separates them, and costs nothing -- every observed layer is
+            depth separates them, and costs nothing since every observed layer is
             already in the trace.
             """
             for observed in ctx.observe_layers:
@@ -2400,7 +2398,7 @@ def _structure_survival(tidy: pd.DataFrame, method: str = "causal") -> pd.DataFr
     Only one method at a time: a table that averaged a bookkeeping panel together
     with a re-run one would be reporting two different quantities under a single
     heading.  The default is the causal run, because "what does the network do
-    about it" is the claim the paper makes.
+    about it" is the question being asked.
     """
     if tidy.empty:
         return pd.DataFrame(columns=["removal", "structure", "survival"])

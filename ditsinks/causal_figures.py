@@ -1,4 +1,4 @@
-"""Reader-first figures for the six ICLR causal questions.
+"""Figures for the six causal experiments on register tokens.
 
 The house style is the same one the observational atlas uses: a Times-like
 serif, a closed axes box with inward ticks, the Okabe-Ito colour-vision-safe
@@ -50,7 +50,7 @@ def _fate_ramp() -> Dict[str, str]:
     """Outcome colour runs from "the register survives" to "the register is lost".
 
     The fates are ordered, not merely categorical, so they take the diverging map
-    rather than the categorical palette -- which also keeps them visually distinct
+    rather than the categorical palette, which also keeps them visually distinct
     from the condition colours used on the same page.
     """
     from matplotlib.colors import to_hex
@@ -217,9 +217,9 @@ def _no_data(ax, message: str = "not measurable in this run") -> None:
     ax.set_yticks([])
 
 
-# ==================================================================== Q1
+# ============================================================ natural-register removal
 def fig_q1_register_removal(tidy: pd.DataFrame, fates: Optional[pd.DataFrame] = None, path=None):
-    """Q1 -- what the routing does once the natural register population is gone."""
+    """What the routing does once the natural register population is gone."""
     _need(tidy, ["condition", "layer", "head", "role"], "Q1 figure")
     layers = _layer_rows(tidy)
     fates = fates if fates is not None and not fates.empty else tidy
@@ -264,7 +264,7 @@ def fig_q1_register_removal(tidy: pd.DataFrame, fates: Optional[pd.DataFrame] = 
 
     # (d) direction against magnitude.  The projection on v* is the product of the
     # two, so it can never separate "the token stopped pointing at v*" from "the
-    # token got smaller" -- the distinction the whole account rests on.  Plotting
+    # token got smaller", the distinction the whole account rests on.  Plotting
     # them as two axes puts each condition in the quadrant that says what it did.
     _direction_versus_magnitude(ax_projection, layers)
 
@@ -415,9 +415,9 @@ def _effect_bars(ax, layers: pd.DataFrame, column: str, *, xlabel: str, title: s
     st.light_grid(ax, "x")
 
 
-# ==================================================================== Q2
+# ============================================================ dominant-channel suppression
 def fig_q2_channel_dose_response(dose: pd.DataFrame, path=None):
-    """Q2 -- the dominant channel's live dose-response, with matched controls."""
+    """The dominant channel's live dose-response, with matched controls."""
     _need(dose, ["gamma", "scope", "control", "vstar_projection_change"], "Q2 figure")
     fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.0))
     ax_projection, ax_retention, ax_controls = axes
@@ -535,9 +535,9 @@ def _effect_bars_by(ax, frame: pd.DataFrame, group_column: str, value: str, *, x
     st.light_grid(ax, "x")
 
 
-# ==================================================================== Q3
+# ============================================================ register regeneration
 def fig_q3_regeneration(tidy: pd.DataFrame, recovery: Optional[pd.DataFrame] = None, path=None):
-    """Q3 -- whether, where and when the register direction comes back."""
+    """Whether, where and when the register direction comes back."""
     recovery = recovery if recovery is not None and not recovery.empty else tidy
     _need(recovery, ["scope", "recovery_kind"], "Q3 figure")
     fig, axes = plt.subplots(1, 3, figsize=(13.4, 4.0))
@@ -613,10 +613,10 @@ def fig_q3_regeneration(tidy: pd.DataFrame, recovery: Optional[pd.DataFrame] = N
     return _finish(fig, caption, path, tight=False)
 
 
-# ==================================================================== Q4
+# ============================================================ writer-feature selection
 def fig_q4_writer_selection(patches: pd.DataFrame, separation: Optional[pd.DataFrame] = None,
                             path=None, primary_endpoint: str = "capture_rate"):
-    """Q4 -- which upstream feature both transfers and prevents register formation.
+    """Which upstream feature both transfers and prevents register formation.
 
     The claim is reciprocal, so the primary panel is drawn as a reciprocal figure:
     transfer runs to the right, prevention to the left, and a genuine writer
@@ -641,7 +641,7 @@ def fig_q4_writer_selection(patches: pd.DataFrame, separation: Optional[pd.DataF
     features = list(dict.fromkeys(primary["patch"].astype(str)))
     positions = np.arange(len(features))[::-1]
     # A feature the architecture never exposed is marked, not drawn as a bar of
-    # height zero -- which would read as "we tested it and it did nothing".
+    # height zero, which would read as "we tested it and it did nothing".
     blocked = _blocked_features(primary, features)
     drawn = False
     for direction, color, sign in (("register_to_ordinary", GREEN, +1.0),
@@ -783,9 +783,9 @@ def _reciprocal_scores(patches: pd.DataFrame) -> pd.DataFrame:
     """Transfer effect minus prevention effect, per feature and measure.
 
     Copying a feature in should create register behaviour and taking it out
-    should prevent it, so the difference of the two is the single number the Q4
-    claim rests on; a one-sided feature scores near the size of its one side and
-    is visibly weaker than a genuinely reciprocal one.
+    should prevent it, so the difference of the two is the single number the
+    writer-selection claim rests on. A one-sided feature scores near the size
+    of its one side and is visibly weaker than a genuinely reciprocal one.
     """
     means = patches.pivot_table(index="patch", columns=["endpoint", "direction"], values="effect",
                                 aggfunc="mean")
@@ -840,9 +840,9 @@ def _feature_label(frame: pd.DataFrame, feature: str) -> str:
     return _pretty(feature)
 
 
-# ==================================================================== Q5
+# ============================================================ sufficiency ladder
 def fig_q5_sufficiency_ladder(ladder: pd.DataFrame, path=None):
-    """Q5 -- the earliest representation whose transplant reproduces a natural sink."""
+    """The earliest representation whose transplant reproduces a natural sink."""
     _need(ladder, ["stage", "position", "capture_rate"], "Q5 figure")
     if "temporal_endpoint" in ladder:
         ladder = ladder[ladder["temporal_endpoint"] == "same_operation"]
@@ -869,7 +869,7 @@ def fig_q5_sufficiency_ladder(ladder: pd.DataFrame, path=None):
                                      (f" ({subset['transfer_mode'].iloc[0]})"
                                       if "transfer_mode" in subset else "")), zorder=2)
     # A stage the architecture does not expose is marked as untested, once, rather
-    # than drawn as a bar of height zero -- which would read as a measured null.
+    # than drawn as a bar of height zero, which would read as a measured null.
     untested = [i for i, stage in enumerate(stages)
                 if not np.isfinite(ladder.loc[ladder["stage"].astype(str) == stage,
                                               "capture_rate"].to_numpy(dtype=float)).any()]
@@ -930,10 +930,10 @@ def _stage_label(frame: pd.DataFrame, stage: str) -> str:
     return _pretty(stage)
 
 
-# ==================================================================== Q6
+# ============================================================ register dissolution
 def fig_q6_dissolution(trajectory: pd.DataFrame, lifetime: Optional[pd.DataFrame] = None,
                        path=None):
-    """Q6 -- whether late channel competition or geometric rotation ends the state."""
+    """Whether late channel competition or geometric rotation ends the state."""
     _need(trajectory, ["condition", "layer", "alpha", "perpendicular_norm"], "Q6 figure")
     fig, axes = plt.subplots(1, 3, figsize=(13.6, 4.1))
     ax_components, ax_channels, ax_lifetime = axes
@@ -1070,9 +1070,8 @@ def fig_circuit_summary(status: Mapping[str, str], effects: Optional[Mapping[str
                         path=None):
     """The causal chain as a diagram, with each arrow's status from this run.
 
-    The plan asks for one falsifiable causal explanation rather than a catalogue
-    of ablations; this is that explanation drawn, with each arrow annotated by the
-    experiment that tested it.
+    One falsifiable causal explanation, drawn rather than left as a catalogue
+    of ablations, with each arrow annotated by the experiment that tested it.
     """
     stages = [("Writer", "sparse upstream write"), ("Dominant channel", "$c^*$"),
               ("Register direction", "$v^*$"), ("Key geometry", "query-key advantage"),
@@ -1148,10 +1147,10 @@ def verdict_table(results: Mapping[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-# =====================================================  Q11 quantization figures
+# ===================================================  register-preserving quantization
 # Identity in these figures is carried by direct labels, and role by colour *and*
 # marker shape, so no condition is distinguished by colour alone.  The reference
-# role is deliberately achromatic: it is a baseline, not a series, and drawing it
+# role is achromatic on purpose: it is a baseline, not a series, and drawing it
 # in a categorical hue would invite it to be read as one more competitor.
 Q11_ROLE_COLOR = {"condition": BLUE, "control": VERMILLION, "reference": SHAM}
 Q11_ROLE_MARKER = {"condition": "o", "control": "s", "reference": "D"}
@@ -1222,8 +1221,8 @@ def _q11_frontier(x: np.ndarray, y: np.ndarray, lower_is_better: bool) -> np.nda
 def _spread_labels(values: Sequence[float], minimum_gap: float) -> List[float]:
     """Nudge label anchors apart just enough to stop them overlapping.
 
-    A scatter of allocation policies clusters hard -- that clustering *is* the result,
-    since the policies cost nearly the same -- so the labels have to be separated
+    A scatter of allocation policies clusters hard, and that clustering *is* the result
+    since the policies cost nearly the same, so the labels have to be separated
     without moving the marks. One upward pass from the lowest anchor keeps the order
     the data has and moves each label the least distance that clears its neighbour.
     """
@@ -1525,12 +1524,12 @@ def fig_q11_operating_regime(regime: pd.DataFrame, path=None, *, checkpoint: str
                              operating_point: Optional[float] = None):
     """Where an activation allocation policy can pay, and where it cannot.
 
-    The honest limit on this whole application. Compressing activations cannot accelerate
+    The limit on this whole application. Compressing activations cannot accelerate
     a layer whose time goes on reading weights, so the ceiling is Amdahl over memory
     traffic and it depends on the activation share. Drawing that as a curve over sequence
     length, rather than quoting one number, is what lets a reader see that the policy is
     irrelevant at batch one with full-precision weights and material alongside a weight
-    quantizer -- which is the regime it is actually for.
+    quantizer, which is the regime it is actually for.
     """
     _need(regime, ["n_tokens", "weight_label", "speedup_ceiling", "activation_share"],
           "Q11 operating-regime figure")
@@ -1585,18 +1584,18 @@ def fig_q11_operating_regime(regime: pd.DataFrame, path=None, *, checkpoint: str
         f"work would make an activation policy pay, and the honest claim is the memory one."),
         path)
 
-# ==========================================  Q12 compute-schedule figures
+# ==========================================  compute-schedule figures
 def fig_q12_compute_grid(field: pd.DataFrame, path=None, *, checkpoint: str = "",
                          register_layers: Sequence[int] = ()):
     """The two fields side by side: the free signal, and the thing it must predict.
 
     A diffusion transformer's compute budget is a layer-by-step grid, every cell computed
     on every generation. Drawing both quantities on that grid is the whole argument in one
-    picture -- if the bright and dark regions of (a) line up with those of (b), a free
+    picture: if the bright and dark regions of (a) line up with those of (b), a free
     probe can tell you which cells to skip.
 
     Sequential maps, one hue each, because both quantities are magnitudes. They are
-    deliberately *not* a shared scale: they are different quantities in different units,
+    not a shared scale on purpose: they are different quantities in different units,
     and a shared colourbar would invite reading a correspondence in absolute value rather
     than in pattern.
     """
@@ -1655,8 +1654,8 @@ def fig_q12_policy_curves(curves: pd.DataFrame, path=None, *, checkpoint: str = 
                           predictors: Sequence[str] = Q12_DRAWN):
     """What each signal costs you when it decides which block evaluations to skip.
 
-    Every policy is the same -- skip the cells the signal calls most redundant, up to the
-    budget -- so only the ranking differs. The two grey references are what make the plot
+    Every policy is the same: skip the cells the signal calls most redundant, up to the
+    budget, so only the ranking differs. The two grey references are what make the plot
     readable as evidence rather than as a ranking: ``oracle`` skips the genuinely smallest
     movements and is the best any signal could do, ``random`` is what no information looks
     like. A useful signal lives between them, and well below ``step``, which is the
@@ -1742,8 +1741,8 @@ def fig_unavailable(question: str, reasons: Mapping[str, str] | None = None, pat
 
     Drawn rather than raised.  A question that cannot run is a fact about the
     model, and the notebook reporting it should keep going and say so on the page:
-    a traceback mid-run reads as a broken pipeline, and the reason -- which is the
-    actual finding -- ends up nowhere in the output.
+    a traceback mid-run reads as a broken pipeline, and the reason, which is the
+    actual finding, ends up nowhere in the output.
 
     Laid out from the wrapped line count rather than a fixed step, because the
     reasons are full sentences and a fixed step overlaps them.
@@ -1809,7 +1808,7 @@ def render(result, path=None):
     Including the shape where there is nothing to draw: a question the
     architecture blocked returns :func:`fig_unavailable` rather than raising, so a
     notebook run survives it.  The builders themselves still refuse an empty
-    table -- they must never invent data -- which is why the check lives here.
+    table, since they must never invent data, which is why the check lives here.
     """
     question = getattr(result, "question", "").lower()
     if question not in FIGURE_BUILDERS:
@@ -1869,7 +1868,7 @@ def fig_structure_interaction(tidy: pd.DataFrame, survival: Optional[pd.DataFram
     Rows are what was taken away, columns are what is being looked at.  Reading
     across a row answers "when this is removed, what else goes with it"; reading
     down a column answers "what does this structure survive".  The diagonal is the
-    manipulation check -- it shows the intervention did what it claims.
+    manipulation check: it shows the intervention did what it claims.
     """
     from .questions import REMOVALS, STRUCTURES
 
@@ -1982,8 +1981,8 @@ def fig_structure_interaction(tidy: pd.DataFrame, survival: Optional[pd.DataFram
 def _to_grid(cell: pd.DataFrame) -> Optional[np.ndarray]:
     """Lay one structure's per-token values back onto the patch grid.
 
-    Several rows can land on one patch -- more than one prompt, seed or method in
-    the frame -- and they are averaged rather than allowed to overwrite each
+    Several rows can land on one patch (more than one prompt, seed or method in
+    the frame), and they are averaged rather than allowed to overwrite each
     other, so a caller that forgot to narrow the frame gets a mean map instead of
     whichever row pandas happened to write last.
     """
@@ -2102,7 +2101,7 @@ def fig_ablation_strip(tidy: pd.DataFrame, image=None, path=None,
             for removal, removal_label in removals
             for structure, structure_label in structures]
 
-    # The panels are square -- they are square images -- so the figure is sized
+    # The panels are square (they are square images), so the figure is sized
     # from the panel outwards rather than left to tight_layout, which measures the
     # cells before the aspect ratio shrinks them and banks the difference as one
     # margin at the top.  Every length below is inches.
@@ -2246,7 +2245,7 @@ def fig_channel_trace(trace: pd.DataFrame, maintenance_layers: Sequence[int] = (
     channel: that the suppression never landed, or that it landed and the network
     put the channel back.  This follows the same patches across every observed
     layer, with the layers the suppression acts on shaded, so the two are told
-    apart by eye -- a line that dips inside the shaded span and climbs out of it
+    apart by eye. A line that dips inside the shaded span and climbs out of it
     is regeneration; a line that never dips is an intervention that missed.
 
     The ordinary patches are drawn alongside as the floor: the register channel
@@ -2368,7 +2367,7 @@ def _share_at_targets(before: Optional[np.ndarray], after: Optional[np.ndarray],
     return treated / reference
 
 
-# ======================================  Q13 direction-vs-magnitude control surface
+# ======================================  direction-vs-magnitude control surface
 # What each grid endpoint is called, and whether the clean value sits at the low or the
 # high end. The sense matters for the diverging maps: a quantity whose clean value is a
 # midpoint is drawn diverging around it, and one that only grows is drawn sequential.
@@ -2488,7 +2487,7 @@ def fig_q13_separation(token: pd.DataFrame, path=None, *, checkpoint: str = ""):
 
     Both panels are properties of the *clean* run, before any intervention: if the
     three quantities were interchangeable the point cloud would be a line and the sink
-    markers would separate at a single cut. Panel (b) is where H3 lives -- a thresholded
+    markers would separate at a single cut. Panel (b) is where the threshold hypothesis lives: a thresholded
     relationship shows as sinks appearing only past some projection, rather than
     increasing smoothly with it.
     """
@@ -2715,7 +2714,7 @@ def fig_q13_contact_sheet(images: pd.DataFrame, root, path=None, *, checkpoint: 
         f"amplified difference read without it is not interpretable."), path)
 
 
-# ==========================================  Q13 intervention-depth comparison
+# ==========================================  intervention-depth comparison
 # One hue per depth, in the order the register lives through them, so a reader can see
 # "earlier is more controllable" as a spread between lines rather than as three tables.
 Q13_DEPTH_ORDER = ("birth", "boundary", "established")
@@ -2735,7 +2734,7 @@ def fig_q13_depth_response(depth: pd.DataFrame, path=None, *, checkpoint: str = 
     **(a) Was there room to move?** The dashed rules are the *clean* alignment at each
     depth and the solid lines are what the edit achieved. Since
     $\cos \to 1$ asymptotically in $\beta$, a depth whose clean state already sits near
-    $|\cos| = 1$ has almost nothing a positive $\beta$ can add -- so a flat response there
+    $|\cos| = 1$ has almost nothing a positive $\beta$ can add, so a flat response there
     is a **ceiling**, not an ineffective edit, and the two are only distinguishable with
     the clean value drawn beside it.
 
@@ -2748,7 +2747,7 @@ def fig_q13_depth_response(depth: pd.DataFrame, path=None, *, checkpoint: str = 
     **(c) What reached the image?** If the earlier depth gives a larger and more
     monotone image response at matched $\beta$, the writer phase affords more control than
     the boundary does. On a checkpoint with no decoder there is no image distance to draw,
-    and the panel falls back to the treated tokens' own projection -- which the caption
+    and the panel falls back to the treated tokens' own projection, which the caption
     says, because a reader would otherwise take the third panel for an image claim.
     """
     _need(depth, ["layer_scope", "beta"], "Q13 depth response")
@@ -2821,7 +2820,7 @@ def fig_q13_depth_response(depth: pd.DataFrame, path=None, *, checkpoint: str = 
                         else f"{min(levels):.3f}-{max(levels):.3f}")
                 level = float(np.mean(levels))
                 # No leader line is needed, so the label goes inside the panel against
-                # its right edge -- and hangs away from the line it names, downward from
+                # its right edge, and hangs away from the line it names, downward from
                 # a level in the upper half and upward from one in the lower, so it stays
                 # on the panel wherever the clean alignment happens to sit.
                 upper = level > (low + high) / 2.0
@@ -2877,7 +2876,7 @@ def fig_q13_depth_response(depth: pd.DataFrame, path=None, *, checkpoint: str = 
         path, tight=False)
 
 
-# =========================================  Q13 writer-phase stage probe (edit site)
+# =========================================  writer-phase stage probe (edit site)
 # The order the forward pass reaches each stage depends on where the edit is installed,
 # so the two sites do not share an x axis and are never drawn on one.
 CS_STAGE_ORDER = ("before_mlp", "after_mlp_write", "after_edit", "after_next_block")
@@ -2896,7 +2895,7 @@ def fig_q13_stage_probe(stages: pd.DataFrame, path=None, *, checkpoint: str = ""
 
     **(a) and (b): the trajectory through one edited block, one panel per edit site.**
     The treated tokens' $x^\top v^*$ at each stage, in the order the forward pass reaches
-    it *under that site* -- a block-input hook fires before the block runs and a
+    it *under that site*: a block-input hook fires before the block runs and a
     block-output hook after, so the two orders differ and a shared axis would read the
     block's response to the edit as its cause. A block-input edit that lands at zero and
     leaves the block near the clean value was **rewritten by that block's feed-forward**,
@@ -3019,7 +3018,7 @@ def fig_q13_stage_probe(stages: pd.DataFrame, path=None, *, checkpoint: str = ""
         f"produces one."), path, tight=False)
 
 
-# ==============================================  Q13 true rotation in the (v*, u) plane
+# ==============================================  true rotation in the (v*, u) plane
 Q13_TARGET_COLOR = {"random_orthogonal": st.OKABE_ITO["orange"],
                     "residual_pc1": BLUE,
                     "semantic_direction": st.OKABE_ITO["green"]}
@@ -3032,7 +3031,7 @@ def fig_q13_rotation_plane(plane: pd.DataFrame, path=None, *, checkpoint: str = 
                            target: str = "", layer: Optional[int] = None):
     r"""Where the treated tokens really sit in the $(v^*, u)$ plane, before and after.
 
-    Measured activations projected onto the two basis vectors -- not a schematic. Each
+    Measured activations projected onto the two basis vectors, not a schematic. Each
     arrow is one token, from its clean coordinates to its rotated ones, and the dashed
     circle is its own norm: a rotation moves a token **along** that circle, which is
     what "the norm is held fixed exactly" looks like when it is drawn rather than
@@ -3071,7 +3070,7 @@ def fig_q13_rotation_plane(plane: pd.DataFrame, path=None, *, checkpoint: str = 
                                 ls=(0, (2, 3)), zorder=1))
         # The path along the circle, not the chord between its ends. A straight arrow
         # from the clean point to the rotated one reads as a translation, which is the
-        # one thing this operator does not do -- it would show the token leaving its own
+        # one thing this operator does not do. It would show the token leaving its own
         # norm circle and returning, and that never happens.
         start = float(np.arctan2(row["b_before"], row["alpha_before"]))
         stop = start + math.radians(float(extreme))
@@ -3128,7 +3127,7 @@ def fig_q13_rotation_response(turned: pd.DataFrame, path=None, *, checkpoint: st
     **(a)** The realised alignment against $\theta$. At $\theta = 90^\circ$,
     $\alpha' = -b$ and $b' = \alpha$: the rotation sweeps the whole $v^*$ alignment out
     and puts $b$ in its place. So the legend prints $b^2/\|x\|^2$, what the rotation
-    brings *in*, rather than the plane's total share -- the share is
+    brings *in*, rather than the plane's total share. The share is
     $\alpha^2/\|x\|^2 + b^2/\|x\|^2$ and its first term **is** $\cos^2$, so on a
     register token aligned with $v^*$ it exceeds 0.96 for every $u$ and distinguishes
     none of them.
@@ -3152,7 +3151,7 @@ def fig_q13_rotation_response(turned: pd.DataFrame, path=None, *, checkpoint: st
         line = group.sort_values("theta_deg")
         colour = Q13_TARGET_COLOR.get(str(target), st.INK_SOFT)
         # b^2/||x||^2, not the plane share. The share is alpha^2 + b^2 over the squared
-        # norm, and alpha^2 IS cos^2 -- so on a register token aligned with v* the share
+        # norm, and alpha^2 IS cos^2, so on a register token aligned with v* the share
         # exceeds 0.96 whatever u is, and cannot tell one u from another. What the
         # rotation brings IN to v* at 90 degrees is b, so b^2 is the discriminating
         # quantity and the one worth printing.
@@ -3227,7 +3226,7 @@ def fig_q13_rotation_response(turned: pd.DataFrame, path=None, *, checkpoint: st
         f"sink, not that direction carries the mechanism."), path, tight=False)
 
 
-# =====================================  Q13 rotation strip: the images, and what moved
+# =====================================  rotation strip: the images, and what moved
 Q13_ROTATION_TARGET_TITLE = {
     "ordinary_mean": "rotated toward where ORDINARY tokens point",
     "ordinary_pc1": "rotated toward how ordinary tokens vary most",
@@ -3237,9 +3236,9 @@ Q13_ROTATION_TARGET_TITLE = {
 }
 # The four mechanism readouts, in the order the project usually reads them: how many loud
 # aligned tokens survive, what the dominant channel is doing, and whether the sinks hold.
-# The four the question asks about. The treated tokens' NORM is deliberately absent: it
-# is preserved by the operator at the hook, which section 11.3 asserts, but every table
-# column named `norm` is measured at a block output downstream -- so a panel of it would
+# The four the question asks about. The treated tokens' NORM is left out on purpose: it
+# is preserved by the operator at the hook, but every table
+# column named `norm` is measured at a block output downstream, so a panel of it would
 # vary and read as the operator failing when it is the network's own response.
 Q13_STRIP_READOUTS: Tuple[Tuple[str, str], ...] = (
     ("n_highnorm", "high-norm tokens"),
@@ -3317,8 +3316,8 @@ def fig_q13_rotation_strip(images: pd.DataFrame, root, readouts: Optional[pd.Dat
     if available:
         # One panel per readout, each on its OWN y axis. They are a token count, a signed
         # channel value, a sink strength and a norm: no shared scale exists, and dividing
-        # each by its unmodified value -- which an earlier version did -- inverts the ones
-        # whose reference is negative and turns the comparison into an artefact.
+        # each by its unmodified value inverts the ones whose reference is negative and
+        # turns the comparison into an artefact.
         table = (readouts[readouts["rotation_target"] == target]
                  if target and "rotation_target" in readouts.columns else readouts)
         inner = outer[1].subgridspec(1, len(available), wspace=0.42)

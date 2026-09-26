@@ -1,8 +1,8 @@
 """Fake (quantize-dequantize) activation quantization with mechanism-aware protection.
 
-This module supports Q11.1: *lifecycle-aware register-preserving quantization*.  The
+This module supports lifecycle-aware register-preserving quantization. The
 hypothesis under test is that preserving the causally identified register direction
-``v*`` -- and only through the layers where the register state actually exists -- gives a
+``v*``, and only through the layers where the register state actually exists, gives a
 better quality/bit trade-off than preserving large activations, which is what existing
 diffusion quantizers already do.
 
@@ -13,8 +13,8 @@ fidelity, and it is *not* evidence of a latency improvement: end-to-end timing n
 low-bit kernels, which this pipeline does not have.
 
 Activation *memory* is a different matter and should not be lumped in with latency.  The
-footprint follows from the bit allocation by arithmetic -- the allocation is the footprint
--- so :mod:`ditsinks.cost_model` reports it as a result rather than an estimate, along
+footprint follows from the bit allocation by arithmetic (the allocation is the footprint),
+so :mod:`ditsinks.cost_model` reports it as a result rather than an estimate, along
 with the memory-traffic share that bounds what any activation policy could do for speed.
 Weights are untouched throughout: this measures an activation allocation policy in
 isolation, which is what makes the accounting below interpretable.
@@ -43,9 +43,9 @@ import torch
 class BitBudget:
     """The exact effective activation cost of one scheme, per token per layer.
 
-    Reported rather than assumed.  ``bits_per_coordinate`` is the number a reviewer
-    will compare across conditions, and it is the total -- bulk grid, quantizer scales
-    and every high-precision escape hatch -- divided by the width of the vector.
+    Reported rather than assumed.  ``bits_per_coordinate`` is the number used to
+    compare across conditions, and it is the total (bulk grid, quantizer scales
+    and every high-precision escape hatch) divided by the width of the vector.
     """
 
     width: int
@@ -64,8 +64,8 @@ class BitBudget:
 
         Protecting a *direction* does not remove a coordinate: the residual keeps its
         full width and merely loses one degree of freedom.  Protecting a *coordinate*
-        does remove it.  Both are charged the same way here -- as extra high-precision
-        scalars on top of the full-width grid -- which is the conservative reading and
+        does remove it.  Both are charged the same way here, as extra high-precision
+        scalars on top of the full-width grid, which is the conservative reading and
         never flatters the mechanism-aware scheme.
         """
         return self.width
@@ -84,7 +84,7 @@ class BitBudget:
         """The budget of a scheme whose protection is only active on part of the run.
 
         A lifecycle-gated scheme pays for its high-precision scalars only in the layers
-        where the protection is switched on, so the honest per-token figure is the mean
+        where the protection is switched on, so the correct per-token figure is the mean
         over layers.  Everything else is unchanged.
         """
         fraction = float(min(max(active_fraction, 0.0), 1.0))
@@ -170,7 +170,7 @@ def quantize_protecting_coordinates(x: torch.Tensor, channels: Sequence[int], bi
     """Keep a fixed set of coordinates in full precision; quantize the rest.
 
     With a single channel this is "protect the model's dominant channel".  When ``v*`` is
-    nearly axis-aligned -- as it is in FLUX -- this converges on
+    nearly axis-aligned (as it is in FLUX) this converges on
     :func:`quantize_protecting_direction`, and the gap between the two conditions is the
     measurement that says how much of the benefit is geometry rather than one channel.
     """
@@ -180,7 +180,7 @@ def quantize_protecting_coordinates(x: torch.Tensor, channels: Sequence[int], bi
     # The protected coordinates are removed from the tensor *before* the range is
     # computed, then restored exactly. Leaving them in would let the outlier keep
     # setting the absmax scale, so the remaining coordinates would gain no resolution
-    # and the scheme would reduce to plain quantization -- verified, not assumed.
+    # and the scheme would reduce to plain quantization. That is verified, not assumed.
     # This mirrors what protecting a direction does structurally, which is what makes
     # the two comparable at all.
     residual = x.float().clone()
@@ -194,8 +194,8 @@ def quantize_protecting_largest(x: torch.Tensor, count: int, bits: int,
                                 *, per_token: bool = True) -> torch.Tensor:
     """Magnitude-aware control: protect each token's ``count`` largest coordinates.
 
-    This is the baseline the whole question turns on -- "is this just outlier
-    protection?" -- so it is given the *same* number of protected scalars as the
+    This is the baseline the comparison turns on ("is this just outlier
+    protection?"), so it is given the *same* number of protected scalars as the
     mechanism-aware scheme and allowed to choose them per token, which is strictly more
     information.  The index cost of that choice is charged in :class:`BitBudget` and
     reported, never silently absorbed.
@@ -207,8 +207,8 @@ def quantize_protecting_largest(x: torch.Tensor, count: int, bits: int,
     ids = values.abs().topk(k, dim=-1).indices
     # As above: excise before scaling, restore after. Under absmax quantization the
     # largest coordinate already lands on the top level, so protecting it *without*
-    # excising it changes nothing at all -- that version of this baseline is a straw
-    # man, and the whole question turns on this control being strong.
+    # excising it changes nothing at all, so that version of this baseline is a straw
+    # man, and the comparison depends on this control being strong.
     residual = values.scatter(-1, ids, torch.zeros_like(values).gather(-1, ids))
     out = quantize_affine(residual, bits, per_token=per_token)
     return out.scatter(-1, ids, values.gather(-1, ids))
@@ -321,8 +321,8 @@ def budget_table(schemes: Sequence[QuantScheme], *, width: int, n_layers: int):
 def equal_budget_groups(table, *, tolerance: float = 0.02) -> Dict[str, Tuple[str, ...]]:
     """Group conditions whose per-coordinate cost matches, so fairness is checkable.
 
-    The comparison the paper makes is *at equal budget*; this returns the groups that
-    claim actually holds over, rather than leaving a reader to eyeball the column.
+    The comparison is made *at equal budget*. This returns the groups over which
+    that condition actually holds, rather than leaving a reader to eyeball the column.
     """
     groups: Dict[float, list] = {}
     for _, row in table.iterrows():

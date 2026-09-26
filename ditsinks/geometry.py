@@ -1,14 +1,9 @@
-r"""The real geometry of the register population, projected into three honest axes.
+r"""Geometric projections of the register token population into three axes.
 
-Every number in this module comes from measured activations.  Nothing is schematic, and
-the three coordinates a figure plots are genuine inner products of a real token state
-with a real basis vector.
+Every coordinate a figure in this module plots is a real inner product of a
+measured token state with a basis vector; nothing here is schematic.
 
-**The interpretable basis.**  A residual stream is thousands of dimensions wide, so any
-picture of it is a projection, and the choice of projection is where a visualisation is
-honest or not.  Generic PCA answers "where is the variance", which is a fact about the
-data but not about the mechanism.  This module's primary basis answers the mechanistic
-question instead:
+The primary basis is built from the mechanism rather than from generic PCA:
 
 .. math::
 
@@ -18,24 +13,21 @@ question instead:
     e_3 &= \text{first principal direction of } \;
            x - (x^\top e_1)e_1 - (x^\top e_2)e_2
 
-So axis 1 *is* the mechanism's direction, axis 2 is whatever the dominant channel carries
-beyond it, and axis 3 is the loudest remaining variation the data itself chooses.  The
-basis is orthonormal by construction, so a coordinate is an honest length and the three
-squared coordinates add up to a share of the token's squared norm.
+Axis 1 is v*'s direction, axis 2 is what the dominant channel carries beyond
+it, and axis 3 is the leading remaining variation in the supplied data. The
+basis is orthonormal by construction, so a coordinate is a length and the
+three squared coordinates sum to a share of the token's squared norm.
 
-**The number that keeps it honest.**  That share -- ``captured_fraction`` -- is the first
-thing every figure reports.  Three axes out of three thousand can be a faithful summary or
-a shadow, and only the data decides which.  A picture that retains 8% of a token's energy
-is still a true projection, and is still nearly useless as an account of the token; saying
-so on the figure is the difference between a visualisation and a decoration.
+``captured_fraction`` is that share, and every figure reports it: three axes
+out of a few thousand can retain most of a token's energy or almost none of
+it, and the value on the figure says which.
 
-**The degeneracy this basis can hit.**  If ``v*`` is itself almost exactly the dominant
-channel -- which is the case on some checkpoints -- then :math:`e_{c^*}` is almost parallel
-to :math:`e_1`, what survives the orthogonalisation is tiny, and axis 2 describes a
-vanishingly thin slice of the space.  ``independent_channel_content`` is
-:math:`\sqrt{1 - (\hat v^*_{c^*})^2}`, which is exactly the length that survives, and it is
-reported so that a flat axis-2 spread is read as "there is nothing there to see" rather
-than as "the channel does not matter".
+If ``v*`` is nearly the dominant channel, which happens on some checkpoints,
+:math:`e_{c^*}` is nearly parallel to :math:`e_1`, what survives
+orthogonalisation is small, and axis 2 spans only a thin slice of the space.
+``independent_channel_content`` is :math:`\sqrt{1 - (\hat v^*_{c^*})^2}`, the
+length that survives, and is reported so a flat axis-2 spread is read as
+"little to see here" rather than as evidence the channel does not matter.
 """
 from __future__ import annotations
 
@@ -169,12 +161,10 @@ def interpretable_basis(states: torch.Tensor, vstar: torch.Tensor, dominant_chan
 
 
 def pca_basis(states: torch.Tensor, vstar: torch.Tensor, dominant_channel: int) -> Basis:
-    """The three leading principal directions: the secondary, comparison-only view.
+    """The three leading principal directions of the states: a comparison-only view.
 
-    Offered because a reader will ask what plain PCA shows, and because agreement
-    between the two views is itself informative.  It answers "where is the variance",
-    which is not the same question as "where is the mechanism", so it is never the
-    primary figure.
+    PCA answers where the variance is, which is not the same question as where the
+    mechanism is, so this basis is not used as the primary figure.
     """
     states = states.float()
     centred = states - states.mean(0, keepdim=True)
@@ -241,16 +231,15 @@ def build_basis(states: torch.Tensor, vstar: torch.Tensor, dominant_channel: int
 
 def exact_token_basis(state: torch.Tensor, vstar: torch.Tensor,
                       dominant_channel: int) -> Basis:
-    r"""Three axes that contain one token **exactly**, with two of them interpretable.
+    r"""Three axes that contain one token exactly, with two of them interpretable.
 
-    A shared 3D basis is the right choice for a population figure, but it is the wrong
-    choice for a decomposition figure: most of an individual token's residual lies
-    outside any three fixed directions, so the drawn :math:`r_i` leg is a fraction of the
-    real one and the picture understates it.
+    A shared 3D basis fits a population figure, but not a decomposition figure: most of
+    an individual token's residual lies outside any three fixed directions, so the drawn
+    :math:`r_i` leg would be a fraction of the real one.
 
-    Keeping axes 1 and 2 -- :math:`\hat v^*` and the orthogonalised dominant channel --
-    and taking axis 3 to be whatever is *left of this token* after those two makes the
-    subspace contain the token with no residue at all:
+    Axes 1 and 2 are :math:`\hat v^*` and the orthogonalised dominant channel; axis 3 is
+    whatever is left of this token after those two, so the subspace contains the token
+    with no residue at all:
 
     .. math::
 
@@ -302,7 +291,7 @@ def categorise(states: torch.Tensor, observation, *, vstar: torch.Tensor,
                extreme_percentile: float = 99.0) -> pd.DataFrame:
     """One row per image token: its geometry, its category, and why.
 
-    Both thresholds come from the project's own definitions -- the norm bar is
+    Both thresholds come from the repository's own definitions. The norm bar is
     ``highnorm_ratio x median`` as computed by
     :func:`~ditsinks.causal_engine.select_frozen_targets`, and sinkhood is read through
     :func:`~ditsinks.control_surface.sink_readout`, which applies
@@ -349,9 +338,9 @@ class GeometrySnapshot:
     states: torch.Tensor                       # [N, C] measured image-token activations
     tokens: pd.DataFrame                       # one row per token, from `categorise`
     basis: Basis
-    # v* is carried explicitly rather than read off the basis. Axis 1 *is* v* for the
-    # interpretable basis, but it is PC1 for the PCA basis -- and a decomposition figure
-    # that took axis 1 as v* would silently decompose along PC1 while labelling it v*.
+    # v* is carried explicitly rather than read off the basis. Axis 1 is v* for the
+    # interpretable basis, but it is PC1 for the PCA basis, so a decomposition figure
+    # that took axis 1 as v* would decompose along PC1 while labelling it v*.
     vstar: torch.Tensor = field(default_factory=lambda: torch.zeros(0))
     condition: str = "clean"
     prompt_id: int = 0
@@ -477,21 +466,20 @@ def capture_snapshots(ctx: QuestionContext, *, layers: Sequence[int],
     """One generation, keeping the real activations at every requested layer.
 
     The tracer normally stores per-token summaries; a ``StateProbe`` keeps the whole
-    ``[N, C]`` slice, which is what a geometric figure needs and what nothing else in this
-    project asks for.  That costs ``N x C x 4`` bytes per layer-step -- about 12 MB at
-    FLUX's 512px shapes -- so the caller names the layers rather than getting all of them.
+    ``[N, C]`` slice, which is what a geometric figure needs. That costs
+    ``N x C x 4`` bytes per layer-step, about 12 MB at FLUX's 512px shapes, so the caller
+    names the layers rather than getting all of them.
 
-    **One basis for the whole sequence.**  ``basis_layer`` fits the basis once, at that
-    layer, and every snapshot reuses it.  A lifecycle figure that refits axis 3 per frame
-    moves the camera with the data, and a population that merely rotated would appear to
-    change shape.  Axes 1 and 2 are model constants and never move; only axis 3 is fitted,
-    which is precisely why it is fitted once.
+    ``basis_layer`` fits the basis once, at that layer, and every snapshot reuses it. A
+    lifecycle figure that refits axis 3 per frame moves the camera with the data, so a
+    population that merely rotated would appear to change shape. Axes 1 and 2 are model
+    constants and never move; only axis 3 is fitted, and only once.
     """
     wanted = sorted({int(l) for l in layers})
-    # NOTE ON MEMORY. `probes` keeps the [N, C] slice at the intervention point, and
-    # `snapshot_from_trace` reads it through `consumed_states`, so `full_state_layers`
-    # would store a *second* copy of every layer for nothing. At FLUX's 512px shapes that
-    # second copy is 12 MB per layer-step -- 0.27 GB over the register window.
+    # `probes` keeps the [N, C] slice at the intervention point, and `snapshot_from_trace`
+    # reads it through `consumed_states`, so `full_state_layers` would store a second copy
+    # of every layer for nothing. At FLUX's 512px shapes that second copy is 12 MB per
+    # layer-step, 0.27 GB over the register window.
     capture = sorted({int(s) for s in (steps if steps is not None else [ctx.step])})
     # The frozen-target selection below reads the intervention layer, so it has to be
     # probed whether or not the caller asked for a snapshot there. Requesting a single

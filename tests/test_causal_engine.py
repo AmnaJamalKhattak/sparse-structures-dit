@@ -1,4 +1,4 @@
-"""The engine's guarantees: inert instrumentation, frozen targets, honest refusals."""
+"""The engine's guarantees: inert instrumentation, frozen targets, and refusals that say why."""
 import math
 
 import pytest
@@ -192,8 +192,8 @@ def _flux_blocks():
                                    InterventionPoint.ADALN_MODULATION,
                                    InterventionPoint.PRE_KEY_NORM_RESIDUAL])
 def test_a_single_block_exposes_what_it_names_differently(point):
-    """A FLUX.1 single block computes these under other names -- its adaptive norm
-    is `norm`, its feed-forward is `proj_mlp` into `act_mlp` -- and reporting them
+    """A FLUX.1 single block computes these under other names, its adaptive norm
+    is `norm`, its feed-forward is `proj_mlp` into `act_mlp`, and reporting them
     unsupported would be a false claim about FLUX, not about our hooks."""
     for kind, (adapter, ref, caps) in _flux_blocks().items():
         capability = caps[point]

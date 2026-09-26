@@ -1,7 +1,7 @@
 """Tests for the metrics, the v* fit, and the figures.
 
-The mock result plants a known ground truth -- registers born at layer 17, sinks
-from layer 19, one dominant channel, one shared direction -- so these assert that
+The mock result plants a known ground truth, registers born at layer 17, sinks
+from layer 19, one dominant channel, one shared direction, so these assert that
 the analysis *recovers* it, not merely that it runs.
 """
 from __future__ import annotations
@@ -55,7 +55,7 @@ def test_expected_jaccard_is_small_for_large_n():
     assert np.isnan(M.expected_jaccard(0, 1024))
 
 
-# ------------------------------------------------------------- recovering Q1
+# ------------------------------------------------------------- recovering natural-register removal
 def test_layer_table_recovers_the_planted_layers(mock_table):
     v = M.sink_layer_verdict(mock_table, threshold=10.0)
     hn = v[v["has_highnorm"]]["layer"]

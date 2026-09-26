@@ -1,8 +1,8 @@
 """Figure style for publication.
 
-Typography follows the NeurIPS body text: a Times-like serif (STIXGeneral, which
-ships with matplotlib, so it is available in Colab), STIX math, bold figure text
-for legibility at final paper size, and ticks inside a closed axes box.
+Typography uses a Times-like serif (STIXGeneral, which ships with matplotlib,
+so it is available in Colab), STIX math, bold figure text for legibility at
+final paper size, and ticks inside a closed axes box.
 
 Colour has two jobs and one rule each.
 
@@ -13,7 +13,7 @@ greyscale printing and projector washout.
 
 *Sequential* (how many tokens fall in a bin) uses `inferno` everywhere the
 quantity is a count, because the colour axis then means the same thing in every
-panel. Attention probability -- a different quantity -- uses `cividis`, so the
+panel. Attention probability, a different quantity, uses `cividis`, so the
 two are never confused.
 """
 from __future__ import annotations
@@ -213,7 +213,7 @@ def use(context: str = "paper") -> Theme:
 
 
 def open_box(ax) -> None:
-    """Left/bottom spines only -- for line plots, where a full box adds nothing."""
+    """Left/bottom spines only, for line plots, where a full box adds nothing."""
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
     ax.tick_params(top=False, right=False)

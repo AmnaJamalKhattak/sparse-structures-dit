@@ -2,9 +2,9 @@
 
 A geometric figure is the easiest place in an interpretability project to produce
 something beautiful and false. These tests hold the three properties that keep it true:
-the basis is orthonormal so a coordinate is an honest length, the retained-energy
-fraction is reported rather than assumed, and the degenerate case -- where ``v*`` simply
-*is* the dominant channel -- is announced instead of being drawn as if it were fine.
+the basis is orthonormal so a coordinate is a true length, the retained-energy
+fraction is reported rather than assumed, and the degenerate case, where ``v*`` simply
+*is* the dominant channel, is announced instead of being drawn as if it were fine.
 """
 import json
 
@@ -80,7 +80,7 @@ def test_axis_two_carries_only_what_the_channel_adds_beyond_vstar(population):
 def test_the_captured_fraction_is_a_fraction_and_reports_the_projection_loss(population):
     """The number that decides whether the cloud is a summary or a shadow.
 
-    It must lie in [0, 1] -- orthonormality guarantees that -- and it must be *smaller*
+    It must lie in [0, 1], orthonormality guarantees that, and it must be *smaller*
     for ordinary tokens than for the aligned population, because the basis was built
     around the latter. A figure that reported a high fraction for everything would be
     hiding the loss rather than measuring it.
@@ -307,8 +307,8 @@ def test_every_geometry_figure_draws_and_carries_its_caption(snapshots, tmp_path
         caption = getattr(figure, "dv_caption", "")
         assert caption, "every figure carries its own caption"
         # Every caption must state its relationship to the full-dimensional space: a
-        # projection says so, and the per-token decomposition -- which is exact rather
-        # than projected -- says that instead. Silence about it is the failure.
+        # projection says so, and the per-token decomposition, which is exact rather
+        # than projected, says that instead. Silence about it is the failure.
         lowered = caption.lower()
         assert any(phrase in lowered for phrase in
                    ("projection", "projected", "drawn subspace",
@@ -372,7 +372,7 @@ def test_a_snapshot_reads_the_state_the_block_consumed_not_the_pre_edit_one(ctx)
     ``StateProbe`` registers before ``EditInstaller``, so ``trace.probe`` at the edit
     layer returns the tensor as it was *entering* the hook. A clean-versus-treated
     geometry figure read off that would show the edited layer as unchanged and the effect
-    as appearing one layer late -- which is exactly the kind of picture that gets
+    as appearing one layer late, which is exactly the kind of picture that gets
     believed. Snapshots therefore resolve the consumed state, and the three properties
     below are the proof: nothing upstream moves, the edit is visible where it happens,
     and the consequence propagates.
@@ -456,7 +456,7 @@ def test_the_capture_does_not_store_a_second_copy_of_every_layer(ctx):
     """A geometric capture is the largest memory consumer in this project.
 
     The probe already keeps the ``[N, C]`` slice and ``consumed_states`` reads it, so
-    asking the tracer for ``full_state_layers`` as well would double the footprint -- 12 MB
+    asking the tracer for ``full_state_layers`` as well would double the footprint, 12 MB
     per layer-step at FLUX's 512px shapes, 0.27 GB over the register window, on top of a
     24 GB model. The snapshots must still be complete without it.
     """

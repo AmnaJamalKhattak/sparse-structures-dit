@@ -1,7 +1,7 @@
-"""A synthetic pooled Q16 dataset shaped like the real one, for exercising the figures.
+"""A synthetic pooled register-retiming dataset shaped like the real one, for exercising the figures.
 
-The numbers are invented and only plausible in shape -- a FLUX-like 57-block stack and a
-PixArt-like 28-block one -- so every figure path runs and can be looked at offline.
+The numbers are invented and only plausible in shape, a FLUX-like 57-block stack and a
+PixArt-like 28-block one, so every figure path runs and can be looked at offline.
 """
 import numpy as np
 import pandas as pd

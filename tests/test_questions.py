@@ -191,8 +191,8 @@ def test_context_never_reselects_layers_or_channels(ctx):
 def test_direction_removal_preserves_the_magnitude(ctx):
     """Removing the v* component must not also shrink the token.
 
-    x - <x,v*>v* has norm ||x||*sqrt(1-cos^2).  For a register nearly collinear
-    with v* -- the paper's central claim -- a plain removal collapses the norm, so
+    x - <x,v*>v* has norm ||x||*sqrt(1-cos^2). For a register nearly collinear
+    with v* (the tested claim), a plain removal collapses the norm, so
     the condition would stop isolating direction from magnitude.
     """
     from ditsinks.questions import Q1_CONDITIONS, _q1_edit
@@ -416,7 +416,7 @@ def test_masking_the_registers_takes_their_attention_share_to_zero(maps):
 
 def test_masking_the_registers_takes_their_norm_down(maps):
     """Replacing the register states with ordinary ones, in the books, has to cost
-    them their norm -- otherwise the bookkeeping is not doing anything."""
+    them their norm, otherwise the bookkeeping is not doing anything."""
     before = maps.tidy[(maps.tidy["removal"] == "clean")
                        & (maps.tidy["structure"] == "high_norm_tokens")]
     after = maps.tidy[(maps.tidy["removal"] == "high_norm_tokens")

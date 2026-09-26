@@ -1,4 +1,4 @@
-"""Q16 -- is the delivered state the one the computation really consumed?
+"""Register retiming: is the delivered state the one the computation really consumed?
 
 The analysis in ``lifecycle.delivery_*`` rests on a claim about the model rather than
 about arithmetic: that the tensor a suppression hook must control is the OUTPUT of the
@@ -117,7 +117,7 @@ def test_the_norm_module_output_is_the_attention_input_only_on_flux(model, shoul
     FLUX's ``AdaLayerNormZero``/``AdaLayerNormZeroSingle`` apply their scale and shift
     inside the module, so the two tensors are bit-identical. PixArt's
     ``BasicTransformerBlock`` computes ``norm1(x) * (1 + scale_msa) + shift_msa`` in the
-    block body, so they are not -- and a per-channel scale is not a rotation, so the
+    block body, so they are not, and a per-channel scale is not a rotation, so the
     alignment each token delivers differs between them. Reading the module output would
     report a pre-modulation tensor as what the computation received.
     """
@@ -161,7 +161,7 @@ def test_a_block_input_edit_reaches_the_consumer_and_suppression_removes_it():
     """The causal chain the schedule depends on, end to end.
 
     A ``BLOCK_INPUT`` hook runs before the block's own adaptive norm, so what it writes is
-    what the QKV projection receives -- and what it removes never arrives.
+    what the QKV projection receives, and what it removes never arrives.
     """
     cfg, driver, vstar = _setup("tiny-flux1")
     layers = list(range(driver.n_layers))
@@ -225,7 +225,7 @@ def test_the_matched_state_is_exactly_what_each_maintained_block_receives(model)
 
     The targets are calibrated from the clean trace at the INPUT of the natural block and
     written at the INPUT of each recipient block. What the block's own computation then
-    receives -- the engine's record of the hooked module's input -- must carry the
+    receives, the engine's record of the hooked module's input, must carry the
     target projection AND the target norm, block by block across the window. Sizes are
     relative, so each recipient block gets a different absolute target.
     """
@@ -278,12 +278,12 @@ def test_the_matched_state_is_exactly_what_each_maintained_block_receives(model)
 
 @pytest.mark.parametrize("model", ["tiny-flux1", "tiny-pixart"])
 def test_a_pre_feed_forward_transfer_changes_only_what_the_feed_forward_reads(model):
-    """Q4's site, checked against the running model before Q16 relies on it.
+    """The pre-feed-forward transfer site, checked against the running model.
 
     The hook sits on norm2's input. If it edited the residual stream, the edited token's
     block output would carry the source state; if it edits only the feed-forward's
     input, the output differs from clean by what the feed-forward WROTE, and no other
-    token of that block changes -- the feed-forward is per token, and attention has
+    token of that block changes, the feed-forward is per token, and attention has
     already run.
     """
     cfg, driver, vstar = _setup(model)
@@ -323,7 +323,7 @@ def test_a_pre_feed_forward_transfer_changes_only_what_the_feed_forward_reads(mo
 
 
 def test_the_alignment_rule_catches_a_state_planted_at_a_new_position():
-    """Relocation, the Q1 outcome, in a live run: the state is put where no clean carrier
+    """Relocation, in a live run: the state is put where no clean carrier
     was, and the clean-referenced rule must remove it at the next block's input."""
     cfg, driver, vstar = _setup("tiny-flux1")
     v = LC._unit(vstar)

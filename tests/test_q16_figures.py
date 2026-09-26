@@ -1,4 +1,4 @@
-"""Every paper figure renders from a pooled dataset shaped like the real one, and prints
+"""Every figure renders from a pooled dataset shaped like the real one, and prints
 only formal names."""
 import matplotlib
 matplotlib.use("Agg")
@@ -235,7 +235,7 @@ def test_make_all_figures_writes_the_guidance_ablation(data, tmp_path):
     plt.close("all")
 
 
-# ------------------------------------------------------------------ LaTeX for the paper
+# ------------------------------------------------------------------ LaTeX output
 def test_latex_macros_and_table_come_from_the_same_numbers(data):
     import re
     from ditsinks import q16_paper as P

@@ -1,14 +1,8 @@
 """Suite-wide guards.
 
-The most useful thing a test suite can do is fail for the reason it claims.
-This file exists because one of these tests once did not: a smoke test asserted
-that drawing prompts from an undersized cache raises, which was true only on a
-machine with no route to DiffusionDB.  It passed in a sandbox and failed in
-Colab, where the fetch it expected to fail instead succeeded -- and where it also
-downloaded a dataset in the middle of a smoke test.
-
-So the fetchers are severed for the whole suite.  A test that wants one stubs it
-in itself; a test whose point *is* to reach DiffusionDB marks itself
+The DiffusionDB fetchers are severed for the whole suite, so no test can pass or fail
+depending on whether the network happens to be reachable. A test that wants one stubs
+it in itself; a test whose point *is* to reach DiffusionDB marks itself
 ``@pytest.mark.allows_network`` and says so out loud.
 """
 import pytest

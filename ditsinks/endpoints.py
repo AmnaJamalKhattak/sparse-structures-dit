@@ -1,4 +1,4 @@
-"""Turn paired clean/treated traces into the endpoints the ICLR plan predeclares.
+"""Turn paired clean/treated traces into the predeclared endpoints these experiments use.
 
 Two endpoints are primary and everything else is a mechanistic diagnostic:
 
@@ -418,7 +418,7 @@ def clean_head_concentration(clean: Trace, *, layers: Sequence[int], step: int) 
 
 def clean_capture_rate(clean: Trace, targets: FrozenTargets, *, layers: Sequence[int],
                        step: int) -> float:
-    """Fraction of heads whose clean sink is a natural register: the Q5 reference."""
+    """Fraction of heads whose clean sink is a natural register, the reference rate for the residual-to-key transplant ladder."""
     ids = set(int(t) for t in targets.register_ids)
     values = []
     for layer in layers:

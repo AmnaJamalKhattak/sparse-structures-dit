@@ -287,8 +287,8 @@ def fig_layer_atlas(result, step: Optional[int] = None, bins: int = 400,
 def fig_layer_summary(result, step: Optional[int] = None, path=None, figsize=(7.2, 4.8)):
     """Extremal-to-typical ratios per layer, and the depth ranges where each exceeds threshold.
 
-    Each curve is dimensionless -- the largest value at a layer divided by that
-    layer's own reference level -- so all three share one axis without a second
+    Each curve is dimensionless, the largest value at a layer divided by that
+    layer's own reference level, so all three share one axis without a second
     y-scale.
     """
     from .metrics import layer_table
@@ -950,17 +950,15 @@ def _offdiag(m: np.ndarray) -> float:
 
 
 # ============================================================================
-# Figures carried over from the FLUX-only v4 notebook.
-# Same analyses, restyled and made model-agnostic.
+# Descriptive figures, model-agnostic.
 # ============================================================================
 def fig_spatial_token_maps(result, layer: int, prompt_id: int = 0, seed: Optional[int] = None,
                            step: Optional[int] = None, path=None,
                            figsize=(12.8, 4.0)):
     """Generated image, raw incoming attention, and raw token norm.
 
-    This reproduces the visual language of the original v4 flagship figure:
-    ``viridis`` for attention and ``magma`` for residual norm.  Set-overlap
-    categories deliberately live in :func:`fig_spatial_overlap_maps`, so this
+    Uses ``viridis`` for attention and ``magma`` for residual norm. Set-overlap
+    categories live in :func:`fig_spatial_overlap_maps` instead, so this
     descriptive figure does not bake in an arbitrary top-k threshold.
     """
     rec = _pick_record(result, layer, prompt_id, seed, step)
@@ -983,7 +981,7 @@ def fig_spatial_token_maps(result, layer: int, prompt_id: int = 0, seed: Optiona
         axes[i].set_xticks([]); axes[i].set_yticks([])
         i += 1
 
-    # Raw values and colormaps match the attached v4 figure exactly.
+    # Raw values, not normalised: colormaps use the true attention and norm scales.
     im = axes[i].imshow(prof.numpy().reshape(gh, gw), cmap="viridis")
     axes[i].set_title("Incoming attention (head mean)")
     st.colorbar(fig, im, axes[i], "Incoming attention mass", fraction=0.05, pad=0.03)

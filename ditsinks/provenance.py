@@ -44,9 +44,9 @@ def _git_commit(root: Path) -> str | None:
 
 def create_run_layout(root: Path | str, run_id: str, *, config: Any,
                       metadata: Mapping[str, Any]) -> Path:
-    """Create a new run directory; refusal to overwrite preserves old evidence."""
+    """Create a new run directory. Refuses to overwrite, so old evidence is preserved."""
     root = Path(root)
-    run = root / "results" / "iclr_causal" / str(run_id)
+    run = root / "results" / "causal_runs" / str(run_id)
     run.mkdir(parents=True, exist_ok=False)
     (run / "diagnostics").mkdir()
     (run / "figures").mkdir()

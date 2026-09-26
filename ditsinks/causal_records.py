@@ -1,8 +1,8 @@
-"""Versioned, lossless records for the Q1--Q6 causal experiments.
+"""Versioned, lossless records for the causal experiments.
 
 JSON is used for human-readable provenance, while the companion ``.pt`` file is
-the source of truth for tensors.  Flat CSV/Parquet files are deliberately
-derived products: they must never be used to resume an experiment.
+the source of truth for tensors.  Flat CSV/Parquet files are derived
+products and must never be used to resume an experiment.
 """
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ class CleanTargetManifest:
 
 @dataclass
 class LayerHeadMeasurement:
-    """Downstream observables for one layer/head (Q1--Q6 sufficient)."""
+    """Downstream observables for one layer/head, covering all causal experiments."""
 
     layer: int
     head: int

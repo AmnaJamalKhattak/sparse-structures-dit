@@ -147,8 +147,8 @@ def _stub_draw(monkeypatch):
 def test_an_undersized_cache_is_redrawn_rather_than_padded_out(tmp_path, monkeypatch):
     """The cache exists for reproducibility, not to return however many it happens to hold.
 
-    Stubbed rather than left to the network: this used to assert that the redraw
-    *fails*, which held only on a machine that could not reach the dataset.
+    Stubbed rather than left to the network, so the redraw is exercised regardless of
+    whether the dataset is reachable.
     """
     _stub_draw(monkeypatch)
     manifest = tmp_path / "short.json"

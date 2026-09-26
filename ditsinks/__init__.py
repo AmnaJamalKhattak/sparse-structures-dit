@@ -11,7 +11,7 @@ from .causal_records import (CausalResults, CleanTargetManifest,
 from .causal_engine import (CausalTracer, EditPlan, FrozenTargets, GenerationDriver, Trace,
                             run_traced_generation, select_frozen_targets)
 from .questions import (QUESTION_RUNNERS, QUESTION_TITLES, QuestionContext, QuestionResult,
-                        run_diagnostic_harness, run_neurips_compatibility, run_questions)
+                        run_diagnostic_harness, run_direction_magnitude_gate, run_questions)
 from .q11 import build_schemes, lifecycle_windows, run_q11
 from .control_surface import (ControlSurfaceConfig, ControlSurfaceResult, align_scale,
                               control_surface_states, gap_closed, identity_error,
@@ -70,7 +70,7 @@ __all__ = [
     "pca_basis",
     "token_table",
     "run_diagnostic_harness",
-    "run_neurips_compatibility",
+    "run_direction_magnitude_gate",
     "create_run_layout",
 ]
 __version__ = "0.1.0"

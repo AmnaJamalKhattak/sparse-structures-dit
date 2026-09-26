@@ -9,13 +9,13 @@ Layout facts this file encodes (diffusers >= 0.36):
 FLUX.1  19 dual + 38 single blocks. Dual blocks carry image tokens in
         `hidden_states` and text in `encoder_hidden_states`; attention runs on
         the concatenated [text, image] sequence. Single blocks either receive
-        the concatenated stream (<=0.35) or the split pair (>=0.36) -- the
+        the concatenated stream (<=0.35) or the split pair (>=0.36), and the
         sequence-length rule below covers both.
 FLUX.2  8 dual + 48 single blocks. Same [text, image] ordering. Single blocks
         are *parallel* blocks: attention and MLP share one input projection and
         one output projection, so there is no separate post-attention residual.
 FLUX.2 text length is prompt-dependent (Mistral text encoder), not a fixed 512.
-PixArt  28 blocks, each with attn1 (image self-attention -- where sinks live)
+PixArt  28 blocks, each with attn1 (image self-attention, where sinks live)
         and attn2 (cross-attention into text). The image sequence never carries
         text tokens, so image->image attention is not diluted by a text sink.
 """
@@ -40,9 +40,9 @@ class InterventionPoint(str, Enum):
     KEY_PRE_POSITION = "key_pre_position"
     FINAL_KEY = "final_key"
     WRITER_RESIDUAL = "writer_residual"
-    # The tensor the image self-attention module is CALLED with -- after the adaptive
+    # The tensor the image self-attention module is called with, after the adaptive
     # norm, after its scale/shift, and after any block-level positional embedding.
-    # Distinct from PRE_KEY_NORM_RESIDUAL, which is the norm MODULE's output and is the
+    # Distinct from PRE_KEY_NORM_RESIDUAL, which is the norm module's output and is the
     # same tensor only where the modulation lives inside that module. It does on FLUX
     # (AdaLayerNormZero applies scale and shift itself) and it does NOT on PixArt, whose
     # BasicTransformerBlock computes `norm1(x) * (1 + scale_msa) + shift_msa` in the
@@ -87,8 +87,8 @@ class ModelAdapter:
     def intervention_capabilities(self, ref: LayerRef) -> Dict[InterventionPoint, HookCapability]:
         """Describe only sites that exist as clean module boundaries.
 
-        Missing/fused stages are deliberately reported as unsupported: callers must
-        never substitute a nearby tensor and call it the requested representation.
+        Missing or fused stages are reported as unsupported. Callers must not
+        substitute a nearby tensor and call it the requested representation.
         """
         b = ref.block
         caps = {
@@ -236,11 +236,11 @@ class Flux1Adapter(ModelAdapter):
         """Name each site by block kind, because FLUX.1 has two block layouts.
 
         The base class finds these by attribute name, which is checkpoint-aware
-        but assumes one layout.  A FLUX.1 *single* block computes the same
-        quantities under different names -- its adaptive norm is ``norm`` rather
+        but assumes one layout. A FLUX.1 *single* block computes the same
+        quantities under different names, its adaptive norm is ``norm`` rather
         than ``norm1``, and its feed-forward is ``proj_mlp`` into ``act_mlp``
-        rather than ``ff`` -- so a name-only probe misses them and reports the
-        architecture as incapable of something it does perfectly well.  Only
+        rather than ``ff``, so a name-only probe misses them and reports the
+        architecture as incapable of something it does perfectly well. Only
         ``pre_mlp_residual`` is genuinely absent there, and it says why.
         """
         caps = super().intervention_capabilities(ref)
@@ -349,7 +349,7 @@ class PixArtAdapter(ModelAdapter):
         #     norm_hidden_states = self.norm1(hidden_states)
         #     norm_hidden_states = norm_hidden_states * (1 + scale_msa) + shift_msa
         #     attn_output = self.attn1(norm_hidden_states, ...)
-        # so norm1's output is NOT the tensor the QKV projection receives -- a per-channel
+        # so norm1's output is not the tensor the QKV projection receives. A per-channel
         # scale stands between them, and a per-channel scale is not a rotation, so it
         # changes each token's alignment with a direction differently. Anything measuring
         # what the computation received must use ATTENTION_INPUT. FLUX does not have this

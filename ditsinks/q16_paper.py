@@ -1,17 +1,17 @@
-"""LaTeX for the paper, generated from the pooled Q16 records.
+"""LaTeX for the paper, generated from the pooled register-retiming records.
 
-Every number the Q16 section quotes is written as a macro, so the text and the tables are
-set from the same CSVs and update together when a run is added or redone:
+Every number is written as a macro, so the text and the tables are set from the
+same CSVs and update together when a run is added or redone:
 
-- ``\\retiming{model}{condition}{field}`` -- image effects (``effects.csv``). Fields:
+- ``\\retiming{model}{condition}{field}``: image effects (``effects.csv``). Fields:
   ``lpips`` (mean), ``lpips-ci`` (``[low, high]``), ``lpips-full`` (both), the same for
   ``clipt`` (change in CLIP image--text similarity), and ``n`` (prompt--seed pairs).
-- ``\\retimingC{model}{treatment-vs-reference}{field}`` -- pre-declared paired contrasts
+- ``\\retimingC{model}{treatment-vs-reference}{field}``: pre-declared paired contrasts
   (``contrasts.csv``), fields as above.
-- ``\\retimingL{model}{condition}{field}`` -- the state after the natural end
+- ``\\retimingL{model}{condition}{field}``: the state after the natural end
   (``late_state.csv``): ``attn`` (share of all attention, percent), ``norm`` (largest
   norm over the block median), ``sinks`` (sinks elsewhere per block).
-- ``\\registerP{model}{field}`` -- the register profile (``register_profile.csv``) and the
+- ``\\registerP{model}{field}``: the register profile (``register_profile.csv``) and the
   frozen protocol: ``tokens``, ``normratio``, ``cos``, ``attn``, ``attnpertoken``,
   ``formation``, ``end``, ``blocks``, ``window``.
 
@@ -80,7 +80,7 @@ def _define(lines: List[str], name: str, value: str) -> None:
 def latex_macros(effects=None, contrasts=None, late=None, profile=None,
                  protocols: Optional[Mapping[str, DepthProtocol]] = None,
                  digits: int = 3) -> str:
-    """Every Q16 number as a LaTeX macro (see the module docstring for the names)."""
+    """Every number as a LaTeX macro (see the module docstring for the names)."""
     lines = [_HEADER.rstrip("\n")]
     if effects is not None and not effects.empty:
         for row in effects.itertuples():

@@ -168,7 +168,7 @@ def test_the_prior_art_control_is_built_before_its_basis_exists(ctx):
 
     Its basis is calibrated from the clean pass, which has not happened when a notebook
     builds the scheme list to show its costs. If the scheme were omitted until a basis
-    existed, the prior-art control the paper plan requires would silently never run.
+    existed, the required prior-art control would silently never run.
     """
     keys = {s.key for s in build_schemes(ctx, bits=4, bases=None)}
     assert "lowrank_absorption" in keys

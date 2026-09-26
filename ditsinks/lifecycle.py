@@ -1,10 +1,10 @@
-r"""Q16 -- is the register's *depth* causal, or only its presence?
+r"""Register retiming: is the register's *depth* causal, or only its presence?
 
 The register state forms in a bounded interval of transformer depth, persists, and
 dissolves. This module asks whether that interval matters: can the state be induced
 earlier or later, and if it can, does it do the same job?
 
-**Four outcomes, deliberately not collapsed into one.** The vocabulary here exists to stop
+**Four outcomes, not collapsed into one.** The vocabulary here exists to stop
 the last from being read backwards into the first:
 
 ``L1`` induced a v\*-aligned residual state at the target depth;
@@ -17,9 +17,9 @@ L2 is a direction written into a token that the block immediately discards.
 
 **And three kinds of "persistence", which are different findings:**
 
-- *maintained* -- the state exists only because the hook reinserts it at every site;
-- *carried* -- it survives into later blocks that were never patched;
-- *reconstructed* -- the network rebuilds or amplifies it on its own.
+- *maintained*, the state exists only because the hook reinserts it at every site;
+- *carried*, it survives into later blocks that were never patched;
+- *reconstructed*, the network rebuilds or amplifies it on its own.
 
 :func:`persistence_class` labels which of these a run produced, from measurements rather
 than from the schedule that was configured.
@@ -40,7 +40,7 @@ __all__ = [
     "direction_only_twin", "induce_matched", "RegisterTarget", "RegisterTargets",
     "calibrate_register_match", "maintenance_summary", "maintenance_profile",
     # Suppression judged by what each block receives; four separate results; the
-    # measured depth schedule; and the induction-site pilot (Q1/Q4-informed revision).
+    # measured depth schedule; and the induction-site pilot.
     "BlockBars", "CleanStateReference", "AlignmentRule", "received_state_rows",
     "received_state_summary", "regrowth_relocation_rows", "regrowth_relocation_summary",
     "ATTENTION_CLASSES", "attention_relocation_rows", "attention_relocation_summary",
@@ -128,7 +128,7 @@ def windows_from_ranges(ranges, *, length: Optional[int] = None,
     stops being attributable to lateness. ``late_first`` may move the window further out;
     it may not move it in, and a value inside the natural range is refused.
 
-    Extension -- keeping the natural state alive past its usual end -- needs the state
+    Extension (keeping the natural state alive past its usual end) needs the state
     maintained through its natural decline, which begins inside the natural range. That
     is not the late window's job. It is a separate BRIDGE (:func:`extension_bridge`), used
     only by the condition that keeps the natural window intact, and reported as such.
@@ -174,8 +174,8 @@ def extension_bridge(natural: Window, late: Window,
 
     NATURAL + LATE asks whether the register's lifetime can be *extended*, and extension
     has to be continuous: the state must never lapse between its natural existence and
-    the late window. It naturally starts to dissolve before the natural range ends -- on
-    FLUX.1-schnell the carriers decline from block 35 and are gone at 40 -- so an
+    the late window. It naturally starts to dissolve before the natural range ends, on
+    FLUX.1-schnell the carriers decline from block 35 and are gone at 40, so an
     induction that only begins at the late window finds nothing to extend and creates a
     second state after a gap.
 
@@ -187,7 +187,7 @@ def extension_bridge(natural: Window, late: Window,
     natural window has nothing to bridge.
 
     Returns ``None`` when no onset was measured, or when the onset leaves no room before
-    the late window -- there is then nothing to bridge, and whether the run was continuous
+    the late window, there is then nothing to bridge, and whether the run was continuous
     is still decided by :func:`continuity_check` rather than assumed.
     """
     if dissolution_onset is None:
@@ -203,7 +203,7 @@ def unrelated_direction(vstar: torch.Tensor, *, seed: int = 0) -> torch.Tensor:
     """A matched control direction: unit length, orthogonal to ``v*``, fixed by seed.
 
     Projected off ``v*`` rather than merely sampled, so "unrelated" is exact instead of
-    approximate -- at 3072 dimensions a random draw is nearly orthogonal anyway, but
+    approximate, at 3072 dimensions a random draw is nearly orthogonal anyway, but
     nearly is not a control.
     """
     v = _unit(vstar)
@@ -226,7 +226,7 @@ def induce_alpha(x: torch.Tensor, tokens: Sequence[int], alpha_target: float,
     compared against the recipient layer's own distribution rather than assumed reasonable.
 
     Implemented as ``x += (alpha_target - alpha) * v``, which is algebraically the same and
-    leaves the orthogonal complement invariant *by construction* -- subtracting a large
+    leaves the orthogonal complement invariant *by construction*, subtracting a large
     ``alpha v`` and adding another back would lose precision in ``r`` exactly where the
     claim "only the v* component moved" is made.
     """
@@ -275,8 +275,8 @@ def calibrate_alpha(natural_projection: torch.Tensor, natural_norm: torch.Tensor
                     tokens: Sequence[int], *, mode: str = "ratio") -> InductionCalibration:
     r"""Choose the target coefficient from clean measurements at both depths.
 
-    ``ratio`` (default) carries the natural register's **dimensionless** alignment --
-    :math:`\alpha / \mathrm{median}\|x\|` at the natural window -- onto the recipient
+    ``ratio`` (default) carries the natural register's **dimensionless** alignment,
+    :math:`\alpha / \mathrm{median}\|x\|` at the natural window, onto the recipient
     layer's own median norm. Residual scale drifts with depth, so copying a raw
     coefficient across depths would confound "same state" with "same number".
 
@@ -310,7 +310,7 @@ def calibrate_alpha(natural_projection: torch.Tensor, natural_norm: torch.Tensor
         note = "the natural carrier's raw alpha, copied across depth unscaled"
     elif mode == "cosine_matched":
         # SECONDARY, and never the primary anchor. It sets alpha so the induced token's
-        # cos(x, v*) equals the natural carrier's -- which on FLUX, where QK-norm makes
+        # cos(x, v*) equals the natural carrier's, which on FLUX, where QK-norm makes
         # the key scale-invariant, means matching the only quantity that reaches the
         # attention logit. That sounds attractive and is the wrong default: the question
         # is whether the SAME KIND of v*-aligned residual state has different
@@ -319,9 +319,9 @@ def calibrate_alpha(natural_projection: torch.Tensor, natural_norm: torch.Tensor
         # mechanism under study. Use it as a mechanistic control, to ask "if the key
         # direction is held equal, does the attention still differ", never to set the
         # strength the image conditions run at.
-        # The natural carriers' actual cos(x, v*). This used to be alpha / MEDIAN norm --
-        # a ratio (13x on FLUX), not a cosine -- clamped to 0.999, so the mode resolved
-        # to 0.999 whatever the register's real alignment was.
+        # The natural carriers' actual cos(x, v*), not alpha / MEDIAN norm, which is a
+        # ratio (13x on FLUX), not a cosine, and would clamp to 0.999 regardless of the
+        # register's real alignment.
         per_token = (natural_projection.float()[index] /
                      natural_norm.float()[index].clamp_min(1e-9))
         cosine = float(per_token.mean())
@@ -391,7 +391,7 @@ def lifecycle_edit(kind: str, tokens, direction: torch.Tensor, *,
     ``suppress``
         the repository's norm-preserving removal: :math:`y = r`, then
         :math:`x' = \|x\| \, y/\|y\|`. Identical to the validated beta/gamma operator at
-        :math:`\beta = 0, \gamma = 1`, which a test asserts rather than assumes -- the
+        :math:`\beta = 0, \gamma = 1`, which a test asserts rather than assumes, the
         whole comparison between conditions D, E and F depends on all three using the
         *same* suppression, and "we reimplemented it the same way" is not a guarantee.
     ``sham``
@@ -400,7 +400,7 @@ def lifecycle_edit(kind: str, tokens, direction: torch.Tensor, *,
     ``tokens`` and ``alpha_target`` each accept a **mapping keyed by denoising step** as
     well as a single value. That exists because the frozen selection and the frozen
     coefficient are both read from the clean run at *one* step, and a schedule that fires
-    at every step then applies them where they may no longer describe anything --
+    at every step then applies them where they may no longer describe anything:
     positions the register has left, or a magnitude that was typical at step 4 and is
     out of distribution at step 18. :func:`carrier_drift` measures whether that happens on
     a given trajectory and :func:`drift_verdict` says whether freezing is defensible;
@@ -449,8 +449,8 @@ def lifecycle_edit(kind: str, tokens, direction: torch.Tensor, *,
                 # v* has a residual made of rounding error, and rescaling THAT back to
                 # ||x|| would hand the block an amplified-noise vector of full register
                 # magnitude. Refusing leaves the token as it is and says so in the
-                # record, which is the honest outcome -- there is no norm-preserving
-                # removal of a direction from a vector that is only that direction.
+                # record: there is no norm-preserving removal of a direction from a
+                # vector that is only that direction.
                 if length > 1e-4 * max(norm, 1e-12):
                     out[..., token, :] = (residual * (norm / length)).to(out.dtype)
             if records is not None and _is_conditional(ctx):
@@ -481,7 +481,7 @@ class LifecycleCondition:
     late: str = "none"        # "none" | "induce"
     role: str = "test"
     note: str = ""
-    # HOW an "induce" is carried out. 'matched' -- the primary -- reproduces the natural
+    # HOW an "induce" is carried out. 'matched' (the primary) reproduces the natural
     # register's relative norm AND v* projection at the recipient block. 'direction_only'
     # sets the v* projection alone, leaving the token near ordinary norm: the earlier,
     # lower-strength injection, kept as a control.
@@ -517,7 +517,7 @@ CONDITIONS: Tuple[LifecycleCondition, ...] = (
     LifecycleCondition("G_sham", "Sham", role="control",
                        note="the same hooks, no tensor changed"),
     # The diagnostic arm. It suppresses ONLY the frozen clean positions, which is what
-    # keeps relocation and reconstruction elsewhere visible -- a state-based rule would
+    # keeps relocation and reconstruction elsewhere visible, a state-based rule would
     # chase them and hide exactly the behaviour this arm exists to measure. Its image is
     # NOT comparable with the three state-based conditions, because it edits a different
     # number of positions for a different number of hooks.
@@ -531,7 +531,7 @@ CONDITIONS: Tuple[LifecycleCondition, ...] = (
 def direction_only_twin(condition: LifecycleCondition) -> LifecycleCondition:
     """The same schedule with the direction-only injection: the matched arm's control.
 
-    Everything but the induction operator is identical -- same windows, same
+    Everything but the induction operator is identical, same windows, same
     suppression, same steps. The control sets a SMALLER v* projection (the declared
     calibration times its strength) and leaves the rest of the token at its own size, so
     a difference between the twins is what the natural-register-sized state adds over
@@ -607,8 +607,8 @@ def achieved_lifecycle(trace, *, step: int, layers: Sequence[int],
             # state is defined against each block's own scale.
             row["carrier_norm_ratio"] = (row["carrier_norm"] / max(median, 1e-9)
                                          if index.numel() else float("nan"))
-            # Against the ORDINARY tokens of this block specifically -- not the carriers,
-            # and not any other high-norm token -- so a condition that inflates many
+            # Against the ORDINARY tokens of this block specifically, not the carriers,
+            # and not any other high-norm token, so a condition that inflates many
             # tokens cannot flatter its own carriers by raising the reference.
             ordinary = norms < highnorm_ratio * median
             if index.numel():
@@ -659,7 +659,7 @@ def achieved_lifecycle(trace, *, step: int, layers: Sequence[int],
                 row["carrier_sink_strength"] = float(readout["sink_strength_headmax"][index].mean())
                 # `any` is too weak to be a level: one token out of sixteen clearing the
                 # bar satisfies it, and at a depth just after dissolution some carriers
-                # are ALREADY sinks in the clean run -- so an `any`-based L3 fires at a
+                # are ALREADY sinks in the clean run, so an `any`-based L3 fires at a
                 # near-no-op perturbation and reports baseline sinkhood as induction.
                 # The fraction is a population statistic and can be compared with clean.
                 row["carrier_sink_fraction"] = float(readout["is_sink"][index].float().mean())
@@ -695,11 +695,11 @@ def persistence_class(rows: Sequence[Dict[str, Any]], *, window: Window,
     the quantity from the absolute level to the **excess over clean**. For an early
     window this is not optional. The blocks after an early window are exactly where the
     natural register forms, so an absolute reading there measures the model doing its
-    ordinary job and reports it as the induced state persisting -- every early row comes
-    back "carried" or "reconstructed" whether or not anything survived.
+    ordinary job and reports it as the induced state persisting. Every early row would
+    come back "carried" or "reconstructed" whether or not anything survived.
 
     Returns ``"not measured"`` rather than a guess when there are no blocks after the
-    window to read, which is the honest answer for a late window at the end of the stack.
+    window to read, which is the correct answer for a late window at the end of the stack.
     """
     def series(source):
         return {int(r["layer"]): r[metric] for r in source
@@ -734,14 +734,14 @@ def persistence_class(rows: Sequence[Dict[str, Any]], *, window: Window,
 class RegisterStateRule:
     r"""When is a token carrying the sparse register state, judged at one hook?
 
-    The same conjunction the frozen selection uses -- **high norm AND strong ``v*``
-    projection** -- evaluated on the tensor at the current hook and nothing else. Both
+    The same conjunction the frozen selection uses, **high norm AND strong ``v*``
+    projection**, evaluated on the tensor at the current hook and nothing else. Both
     thresholds are relative to that block's own distribution, so the rule is
     model-specific and depth-specific without importing anything from another layer or
     from a later block.
 
     The conjunction is the point. A projection percentile *alone* selects whatever
-    fraction of the image stream the percentile names -- at p99 on 4096 tokens that is
+    fraction of the image stream the percentile names, at p99 on 4096 tokens that is
     41 tokens at **every** block whether or not a register exists there, because a
     percentile always selects. Ordinary tokens carry weaker ``v*`` components too, and
     erasing them all would remove the direction from the image stream rather than
@@ -844,7 +844,7 @@ class SuppressionSite:
     intervention_l2: float
     max_projection_after: float
     operator: str = "norm_preserving"
-    # How many tokens meet the register criterion at this hook, before the edit -- the
+    # How many tokens meet the register criterion at this hook, before the edit, the
     # REGROWTH measure. Equal to n_selected in state mode; in fixed mode n_selected is
     # just the mask size, which says nothing about whether the state came back.
     n_register_like: Optional[int] = None
@@ -853,14 +853,14 @@ class SuppressionSite:
     # and it says how far the NORM-PRESERVING operator had to scale that remainder up.
     residual_to_median: float = float("nan")
     # WHICH tokens the hook edited, split by whether they belong to the original clean
-    # carrier population. Q1 found that removing the register is followed, in most runs,
-    # by ANOTHER token becoming the carrier; a single "regrowth" count cannot tell the
-    # original carriers coming back from the state moving to a new position.
+    # carrier population. Removing the register is followed, in most runs, by ANOTHER
+    # token becoming the carrier; a single "regrowth" count cannot tell the original
+    # carriers coming back from the state moving to a new position.
     chosen_ids: Tuple[int, ...] = ()
     n_original: Optional[int] = None
     n_new: Optional[int] = None
     new_ids: Tuple[int, ...] = ()
-    # What the block RECEIVED -- measured on the tensor the hook hands on, directly, not
+    # What the block RECEIVED, measured on the tensor the hook hands on, directly, not
     # inferred from the rule. ``received_bar`` is the clean ordinary alignment ceiling the
     # rule enforces at this block; NaN for a rule that has none.
     received_bar: float = float("nan")
@@ -899,7 +899,7 @@ class SuppressionSite:
 class Suppressor:
     r"""Prevent the sparse ``v*``-aligned state, by fixed mask or by state-based rule.
 
-    One class, two selection modes, **the same operator and the same schedule** -- which
+    One class, two selection modes, **the same operator and the same schedule**, which
     is what lets the suppression conditions be compared with each other. The operator is
     a constructor argument: ``subtractive`` is the primary, ``norm_preserving`` the
     sink-identity control (see ``operator`` below).
@@ -914,7 +914,7 @@ class Suppressor:
 
     **Regrowth is read off the rule itself.** At the first hook the natural state exists,
     so the rule selects the carrier population. At every later hook, anything it selects
-    is a register-like state that re-formed since the previous block -- so
+    is a register-like state that re-formed since the previous block, so
     ``n_selected`` after the first hook *is* the regrowth measure, with no extra
     threshold to choose. ``newly_targeted`` names positions never touched before, which
     separates "the same tokens keep coming back" from "the state is moving".
@@ -930,8 +930,8 @@ class Suppressor:
         # of one another; they answer different questions.
         #
         # ``norm_preserving``  x' = ||x|| r / ||r||. The validated beta=0, gamma=1 operator:
-        #     direction changes, magnitude does not. For a register token -- whose norm is
-        #     over ten times the median and almost all of it along v* -- this scales the
+        #     direction changes, magnitude does not. For a register token, whose norm is
+        #     over ten times the median and almost all of it along v*, this scales the
         #     remainder r up to register magnitude. The token keeps a register-sized norm
         #     pointing along its ordinary content, which later blocks, writing
         #     contributions of ordinary size, can barely move. That is not "a register
@@ -958,7 +958,7 @@ class Suppressor:
         self.sites: List[SuppressionSite] = [] if sites is None else sites
         # Per DENOISING STEP. Once the schedule fires at every step, a single set would
         # mark every token "already seen" after the first step and `newly_targeted` would
-        # read zero for the rest of the run -- turning the relocation measure off exactly
+        # read zero for the rest of the run, turning the relocation measure off exactly
         # when there is most to measure.
         self.seen: Dict[int, set] = {}
 
@@ -1058,17 +1058,17 @@ def suppression_verdict(sites: Sequence[SuppressionSite], *, window: Window,
     Two questions, reported separately, because only one of them can invalidate a
     condition.
 
-    **Regrowth** -- how often the rule fires again after the first hook. A hook at
+    **Regrowth**, how often the rule fires again after the first hook. A hook at
     ``BLOCK_INPUT`` of block *k* cleans the stream block *k* then computes from; block
     *k* writes some of the state back, so at block *k+1*'s hook the rule finds it again.
     That is the model rebuilding the state, and it is a **measurement of how strongly it
     does so**, not a failure. An earlier version of this function gated on it, which was
     wrong twice over: it would call a perfectly-guarded interval incomplete merely
     because the network kept trying, and it invited escalating the intervention until the
-    number looked right -- towards exactly the indiscriminate erasure the rule exists to
+    number looked right, towards exactly the indiscriminate erasure the rule exists to
     avoid.
 
-    **Delivery** -- whether any attention or feed-forward inside the interval actually
+    **Delivery**, whether any attention or feed-forward inside the interval actually
     read a register-like state. This is the gate, and it comes from
     :func:`delivery_verdict` measured at the normalised tensor the QKV projection
     receives. Between block *k*'s output and block *k+1*'s consumers stands block *k+1*'s
@@ -1106,7 +1106,7 @@ def suppression_verdict(sites: Sequence[SuppressionSite], *, window: Window,
     share = peak / max(abs(float(clean_carrier_projection)), 1e-9)
 
     # Did the SUPPRESSED POPULATION regain sink behaviour? Not "does the image contain
-    # sinks" -- it always does; a clean FLUX run carries 130-200 sinks per block, so
+    # sinks", it always does; a clean FLUX run carries 130-200 sinks per block, so
     # counting any sink outside the frozen carriers marks every condition as failed,
     # including clean. The question is whether the tokens whose v* component was removed
     # are attracting attention again.
@@ -1170,7 +1170,7 @@ def suppression_verdict(sites: Sequence[SuppressionSite], *, window: Window,
         # The TEMPORAL dose, reported beside the depth dose. A schedule that fires at one
         # denoising step out of twenty leaves the sampler nineteen steps in which to
         # repair the image, and an absent image effect then says nothing about the
-        # register -- only about the dose.
+        # register, only about the dose.
         steps_hooked=len(steps_hooked),
         steps_total=(int(n_steps_total) if n_steps_total else None),
         temporal_coverage=(len(steps_hooked) / int(n_steps_total)
@@ -1188,7 +1188,7 @@ def suppression_verdict(sites: Sequence[SuppressionSite], *, window: Window,
         terminal_boundary_open=boundary_open,
         peak_delivered_register_share=(delivery or {}).get(
             "peak_delivered_register_share"),
-        # Reported, deliberately NOT a gate -- see the docstring.
+        # Reported, not a gate, see the docstring.
         peak_projection_after_first_hook=peak,
         peak_as_share_of_clean_carrier=share,
         total_newly_targeted=len({t for s in inside for t in s.newly_targeted}),
@@ -1209,14 +1209,14 @@ def classify_achieved_lifetime(rows: Sequence[Dict[str, Any]],
 
     ``continuous_extension``
         the induced state is still present, above the clean trajectory, in the blocks
-        between the induction window and the natural window -- so availability really was
+        between the induction window and the natural window, so availability really was
         extended rather than pulsed.
     ``pulse_then_natural``
         the excess over clean collapses before the natural window, and natural formation
         proceeds roughly as in the clean run. **An early pulse followed by ordinary
         natural formation, not a retimed lifecycle**, and must be reported as such.
     ``displacement``
-        natural formation is substantially altered -- the frozen carriers lose their
+        natural formation is substantially altered, the frozen carriers lose their
         high-norm state and/or the population relocates. Whatever the image shows, the
         natural lifecycle did not run.
 
@@ -1301,14 +1301,14 @@ def carrier_census(rows: Sequence[Dict[str, Any]], *, window: Window) -> Dict[st
     ``n_highnorm_new`` is a **per-block count**, so summing it over a window gives
     token-layer observations: 395 can be ten positions crossing the threshold at forty
     blocks, or three hundred and ninety-five positions crossing once. Those are opposite
-    answers to "did the intervention relocate register formation?" -- the first is the
+    answers to "did the intervention relocate register formation?", the first is the
     same population flickering around the bar, the second is genuine relocation.
 
     Returns the unique counts and the persistence of each position (how many blocks of
     the window it was high-norm at), so the two can be told apart:
 
-    ``unique_new`` small with high ``median_blocks_per_new`` -- a stable relocated
-    population.  ``unique_new`` large with ``median_blocks_per_new`` near 1 -- threshold
+    ``unique_new`` small with high ``median_blocks_per_new``, a stable relocated
+    population.  ``unique_new`` large with ``median_blocks_per_new`` near 1, threshold
     flicker, and the cumulative count is an artefact of the bar, not a finding.
     """
     from collections import Counter
@@ -1365,7 +1365,7 @@ def carrier_census(rows: Sequence[Dict[str, Any]], *, window: Window) -> Dict[st
 # tensors, and only one of them can invalidate a condition.
 #
 # The consuming operation is reached through an adaptive norm, and the two families put
-# the modulation in different places -- which decides where this has to be measured.
+# the modulation in different places, which decides where this has to be measured.
 #
 #   FLUX single    norm_hidden_states, gate = self.norm(hidden_states, emb=temb)
 #                  -> self.attn(hidden_states=norm_hidden_states)   (QKV projection)
@@ -1380,7 +1380,7 @@ def carrier_census(rows: Sequence[Dict[str, Any]], *, window: Window) -> Dict[st
 # the module, so on FLUX the norm module's output is exactly what the QKV projection
 # receives. ``BasicTransformerBlock`` with ``norm_type="ada_norm_single"`` applies them
 # **in the block body**, so on PixArt it is not: a per-channel scale stands in between,
-# and a per-channel scale is not a rotation -- it changes each token's alignment with a
+# and a per-channel scale is not a rotation, it changes each token's alignment with a
 # direction by a different amount and can reorder which token is most aligned.
 #
 # So this probe reads ``InterventionPoint.ATTENTION_INPUT``: the tensor the attention
@@ -1392,8 +1392,8 @@ def carrier_census(rows: Sequence[Dict[str, Any]], *, window: Window) -> Dict[st
 # asserted: LayerNorm divides token magnitude out, but the modulation that follows can
 # put some back. ``consumed_norm_spread`` is reported for exactly this reason. Where it
 # is ~1 the register's magnitude never reaches a weight and what the computation
-# receives is a DIRECTION -- the same fact as FLUX's ``norm_k = RMSNorm`` making the key
-# norm constant, one stage earlier -- and delivery is then an alignment question. Where
+# receives is a DIRECTION, the same fact as FLUX's ``norm_k = RMSNorm`` making the key
+# norm constant, one stage earlier, and delivery is then an alignment question. Where
 # it is not ~1, alignment remains necessary but stops being sufficient, and the run says
 # so instead of the analysis assuming otherwise.
 
@@ -1413,7 +1413,7 @@ class DeliveryProbe:
 
     Both sides of the same module are recorded, so the two are exactly aligned:
 
-    ``supplied_*``  the residual entering the block -- the tensor the suppression rule is
+    ``supplied_*``  the residual entering the block, the tensor the suppression rule is
                     evaluated on, and the one a ``BLOCK_INPUT`` edit rewrites. This probe
                     is entered around the generation, so its hook registers before the
                     edit installer's and reads the state **as the block received it**,
@@ -1528,8 +1528,8 @@ class DeliveryProbe:
         """A probe over statistics already recorded, for reanalysis without the model.
 
         The per-token vectors are small enough to save beside a run, so the delivery
-        analysis can be redone -- at a different tolerance, against a different carrier
-        set -- without another generation.
+        analysis can be redone, at a different tolerance, against a different carrier
+        set, without another generation.
         """
         probe = cls.__new__(cls)
         probe.rows = {(int(s), int(l)): dict(v) for (s, l), v in rows.items()}
@@ -1548,7 +1548,7 @@ def delivered_rows(probe: DeliveryProbe, *, step: int, layers: Sequence[int],
     ``ordinary_*`` are computed over the image tokens that are **not** frozen carriers,
     and they are the reference the gate uses. The point of scoring against the clean
     run's own ordinary ceiling rather than against zero is that the direction ``v*`` is
-    not absent from an ordinary token -- it is a real axis of the residual stream and
+    not absent from an ordinary token, it is a real axis of the residual stream and
     every token has some component along it. Suppression is meant to prevent the sparse
     register state, not to erase the axis, so "no register was delivered" has to mean
     "nothing arrived more aligned than the model's own ordinary tokens".
@@ -1585,7 +1585,7 @@ def delivered_rows(probe: DeliveryProbe, *, step: int, layers: Sequence[int],
         ordinary = cos[mask]
         # Projections, beside the cosines. The adaptive norm adds ONE shift vector to every
         # token; it cancels inside attention's softmax (a common key offset adds the same
-        # logit to every key), but it does not cancel inside a cosine -- a large shift
+        # logit to every key), but it does not cancel inside a cosine, a large shift
         # pulls every token's cosine toward cos(shift, v*) and can flatten real
         # differences to nothing. Differences of projections are shift-invariant.
         ordinary_projection = projection[mask]
@@ -1659,8 +1659,8 @@ def delivery_verdict(rows: Sequence[Dict[str, Any]],
     ratio with a near-zero denominator: the maximum over four thousand tokens moves by a
     few hundredths of a cosine between any two trajectories, and divided by a gap of a
     few hundredths that reads as "twice the natural register". It happens exactly where
-    the clean model has not yet written the register into the block's input -- the writer
-    blocks, at the start of the suppression interval -- so there is nothing there to
+    the clean model has not yet written the register into the block's input, the writer
+    blocks, at the start of the suppression interval, so there is nothing there to
     deliver in the clean run either. Such blocks are reported and not scored.
 
     ``terminal`` is the block **after** the suppression interval, which is the one place
@@ -1778,8 +1778,8 @@ def delivery_coverage(probe: DeliveryProbe, rule: RegisterStateRule, *,
     residual (``supplied_*``), where the register is both large and aligned. The consumer
     reads the normalised tensor (``consumed_*``), where **magnitude has been divided
     out**. A token that is strongly aligned with ``v*`` but has not yet crossed the
-    high-norm bar -- a register in the course of being written, at the block where the
-    writer is depositing into it -- is invisible to the rule and yet can arrive at the
+    high-norm bar, a register in the course of being written, at the block where the
+    writer is depositing into it, is invisible to the rule and yet can arrive at the
     QKV projection pointing very nearly where the finished register points.
 
     So for every block: evaluate the rule on what the block was supplied, then ask how
@@ -1911,7 +1911,7 @@ def suppression_schedule(window: Window, *, n_layers: int,
 
     **The terminal boundary.** A hook at ``BLOCK_INPUT`` of block *k* protects block *k*'s
     own attention and feed-forward. The last hook is at ``window.last``, so block
-    ``window.last``'s output -- which may carry a state its own writer just rebuilt --
+    ``window.last``'s output, which may carry a state its own writer just rebuilt,
     enters ``window.last + 1`` with nothing between. One more hook there closes it. It is
     part of the schedule rather than an analysis step, because there is no way to measure
     the leak away afterwards.
@@ -1920,7 +1920,7 @@ def suppression_schedule(window: Window, *, n_layers: int,
     suppression interval must stop before it or the two operators fight at every shared
     block. ``stop_before`` truncates the interval, and the terminal cleanup then lands on
     the induction's first block, where it runs first and the induction writes the
-    intended state on top of a cleaned stream -- which is exactly what "the state exists
+    intended state on top of a cleaned stream, which is exactly what "the state exists
     only from here on" means.
     """
     last = int(window.last)
@@ -1955,7 +1955,7 @@ def measured_dissolution_onset(baseline_rows: Sequence[Dict[str, Any]], *,
 
     Not where the frozen artifact's ``dissolution`` range says it does. The artifact
     declares a range fitted over a whole prompt population; a single trajectory has its
-    own onset, and on FLUX.1-schnell the two differ by five blocks -- the declared
+    own onset, and on FLUX.1-schnell the two differ by five blocks, the declared
     dissolution begins at 40 while the carrier population is already in decline from 35.
 
     The distinction is the whole of the NATURAL + LATE condition. An induction that
@@ -2002,7 +2002,7 @@ def continuity_check(rows: Sequence[Dict[str, Any]],
 
     The measurement that decides whether NATURAL + LATE produced what it is named after.
     Presence at a block is the condition's own value of ``metric`` against a bar set from
-    the **clean plateau** -- the same absolute bar at every depth, because a bar that
+    the **clean plateau**, the same absolute bar at every depth, because a bar that
     followed the clean run's decline would call the clean run itself continuous and could
     never distinguish extension from anything.
 
@@ -2062,7 +2062,7 @@ def carrier_drift(trace, *, layer: int, steps: Sequence[int], direction: torch.T
 
     **Positions.** The induction arms write at token ids chosen from the clean run at one
     step. If the register sits on different image tokens at step 2 and step 18, those arms
-    spend most of the trajectory inducing at positions that carry nothing -- an
+    spend most of the trajectory inducing at positions that carry nothing, an
     intervention on ordinary tokens wearing the label of a register experiment. (The
     state-based suppression rule does not have this problem: it re-derives its selection
     at every hook, so it follows the population through depth *and* time. Only the fixed
@@ -2135,7 +2135,7 @@ def drift_verdict(rows: Sequence[Dict[str, Any]], *, position_overlap: float = 0
     if not measured:
         return dict(drift="not measured",
                     reason="no step other than the reference produced a clean selection")
-    # No carrier ANYWHERE is not drift -- it is an absent measurement, and calling it
+    # No carrier ANYWHERE is not drift, it is an absent measurement, and calling it
     # drift would send a run to per-step re-selection of nothing.
     if not any(int(r.get("n_carriers", 0) or 0) for r in measured) and \
             not any(int(r.get("n_reference_carriers", 0) or 0) for r in measured):
@@ -2209,7 +2209,7 @@ def lifecycle_over_time(trace, *, steps: Sequence[int], layers: Sequence[int],
     """:func:`achieved_lifecycle` at every recorded step: the lifecycle in depth AND time.
 
     One row per (step, block), plus the recorded register channels' carrier mean when the
-    tracer kept them -- channel 154 on FLUX, 293 on PixArt -- so whether the downstream
+    tracer kept them (channel 154 on FLUX, 293 on PixArt) so whether the downstream
     structures move with ``v*`` is read from the same table as ``v*`` itself.
 
     Computed immediately after each run, so :func:`thin_trace` can then drop the heavy
@@ -2246,7 +2246,7 @@ def thin_trace(trace, *, keep_steps: Sequence[int]) -> int:
 
     Recording every denoising step at every block costs ~1.3 GB of attention summaries
     per run at 1024px on FLUX. Every existing analysis reads only the reference step, and
-    :func:`lifecycle_over_time` has already reduced the rest to a table -- so the tensors
+    :func:`lifecycle_over_time` has already reduced the rest to a table, so the tensors
     at the other steps can go once that table exists, and memory stays at one run's
     worth however many conditions are run.
     """
@@ -2267,7 +2267,7 @@ def save_trace_compact(trace, path, *, half: bool = True) -> int:
     """Write every recorded tensor of a trace to ``path``; return the bytes written.
 
     Stored as ``{(step, layer): {field: tensor}}`` plus the trace's identifying metadata,
-    in float16 by default -- the per-token statistics need no more precision than that,
+    in float16 by default, the per-token statistics need no more precision than that,
     and it halves a run's footprint on Drive. Call it before :func:`thin_trace` to keep
     the full record.
     """
@@ -2315,7 +2315,7 @@ def artifact_colocation(image, reference, *, grid: Tuple[int, int],
     square of pixels; the per-token artifact score is the mean absolute difference from
     the reference over that square.
 
-    - Changes concentrated on the suppressed tokens point at the edit itself -- the token
+    - Changes concentrated on the suppressed tokens point at the edit itself, the token
       that was altered is the token that renders differently.
     - Changes elsewhere point at the network: the register's absence altered how OTHER
       tokens were computed, through attention.
@@ -2379,7 +2379,7 @@ def structure_extent(rows: Sequence[Dict[str, Any]], baseline: Sequence[Dict[str
 
     The measurement behind "does moving v* move the other structures?". Presence at a
     block is ``metric`` at or above ``fraction`` of the CLEAN run's peak over blocks at
-    the same step -- one absolute bar per step, from the clean run, so an intervention
+    the same step, one absolute bar per step, from the clean run, so an intervention
     that halves a structure everywhere reads as a shorter extent rather than as the same
     extent at a lower level.
 
@@ -2439,7 +2439,7 @@ def induce_matched(x: torch.Tensor, tokens: Sequence[int], alpha_target,
     **What is matched:** those two scalars. **What is not:** the direction :math:`\hat r`
     of the remainder, which stays the recipient token's own content rather than a
     natural register's; anything else a natural register carries in its orthogonal
-    complement; and the token's history -- how it got there, and what earlier blocks
+    complement; and the token's history, how it got there, and what earlier blocks
     wrote alongside it. A matched state that fails to behave like a register is
     therefore not by itself evidence that depth matters: the unmatched parts are live
     alternatives, and :func:`calibrate_register_match` measures the first of them.
@@ -2447,8 +2447,8 @@ def induce_matched(x: torch.Tensor, tokens: Sequence[int], alpha_target,
     ``alpha_target`` / ``norm_target`` are a number each, or ``{token: value}``. A batched
     tensor has each row edited with ITS OWN remainder rather than one row's content
     copied into another. (Inside the engine an edit is handed the conditional row's
-    [N, C] slice only, so the unconditional branch is not edited -- as for every Q16
-    operator.) A token whose remainder is numerically zero has no direction to scale and
+    [N, C] slice only, so the unconditional branch is not edited, as for every
+    operator in this module.) A token whose remainder is numerically zero has no direction to scale and
     is left alone, as :func:`lifecycle_edit`'s suppression does.
     """
     v = _unit(direction).to(device=x.device)
@@ -2492,7 +2492,7 @@ class RegisterTarget:
 
     ``per_token`` holds a token's OWN natural statistics when it is one of the natural
     carriers, so the oracle positions keep the population's heterogeneity rather than
-    all being set to its mean. Any other token -- an ordinary-position control, say --
+    all being set to its mean. Any other token (an ordinary-position control, say)
     gets the population values.
     """
 
@@ -2511,7 +2511,7 @@ class RegisterTargets:
     window, and each denoising step, gets targets scaled to ITS OWN median norm. A
     fallback for steps that were not calibrated separately exists only if it is
     registered explicitly with ``step=None``; without one, an uncalibrated step is left
-    alone -- the same rule :func:`lifecycle_edit` applies to per-step coefficients.
+    alone, the same rule :func:`lifecycle_edit` applies to per-step coefficients.
     """
 
     def __init__(self):
@@ -2580,7 +2580,7 @@ def calibrate_register_match(trace, *, step: int, natural_layers,
     r"""Scale the clean natural register's statistics to each recipient block.
 
     **Reference.** The carriers at the INPUT of each block in ``natural_layers`` (read as
-    the previous block's output) on the clean run at ``step`` -- the natural register as
+    the previous block's output) on the clean run at ``step``, the natural register as
     the natural window's computations receive it. Per carrier, averaged over those
     blocks: :math:`\rho_t = \|x_t\| / \mathrm{median}` and
     :math:`\pi_t = \alpha_t / \mathrm{median}`. Relative, because block scales differ by
@@ -2588,28 +2588,28 @@ def calibrate_register_match(trace, *, step: int, natural_layers,
     different thing at every depth.
 
     **Targets.** At recipient block L the targets are :math:`\rho_t m_L` and
-    :math:`\pi_t m_L`, with :math:`m_L` the median norm of L's INPUT -- the tensor the
+    :math:`\pi_t m_L`, with :math:`m_L` the median norm of L's INPUT, the tensor the
     edit writes into.
 
     **Is it unusually large for the recipient?** One report row per block: the target
     against the largest norm and projection ANY clean token holds there, the target's
     percentile among them, the size of the edit on the clean tensor in units of that
-    block's median, and ``projection_only_norm_ratio`` -- the norm a token would reach if
-    only its projection were set -- which says how much of the norm match the
+    block's median, and ``projection_only_norm_ratio``, the norm a token would reach if
+    only its projection were set, which says how much of the norm match the
     projection already brings.
 
     **What is not matched.** With ``natural_states`` (a full [N, C] slice at a natural
     block's input) and ``recipient_states`` (``{block: [N, C]}`` at recipient inputs) it
     measures the one unmatched quantity a single slice can show: the direction of the
-    remainder -- the part of the token orthogonal to v*, which the operator keeps from
+    remainder, the part of the token orthogonal to v*, which the operator keeps from
     the recipient. Every number has an ORDINARY-token baseline beside it, because the
     residual stream has a direction every token shares, and a raw cosine would report
     that as the register's:
 
-    - ``natural_remainder_coherence`` / ``ordinary_remainder_coherence`` -- how much the
+    - ``natural_remainder_coherence`` / ``ordinary_remainder_coherence``, how much the
       carriers' remainders point one way, against how much any token's do. A clear excess
       is a shared component the register carries beyond v*.
-    - ``remainder_vs_natural_cosine`` / ``ordinary_remainder_baseline`` -- how close each
+    - ``remainder_vs_natural_cosine`` / ``ordinary_remainder_baseline``, how close each
       carrier's remainder at the recipient is to ITS OWN remainder as a natural register
       (same position), against how close an ordinary token's is to itself across the same
       two depths. A clear deficit is register-specific content the matched state lacks.
@@ -2665,7 +2665,7 @@ def calibrate_register_match(trace, *, step: int, natural_layers,
             r_norm, r_proj = recipient.norm.float(), recipient.projection.float()
         elif (recipient_states is not None and int(layer) in recipient_states
               and direction is not None):
-            # The trace records block OUTPUTS, so block 0's input -- the embedding -- is
+            # The trace records block OUTPUTS, so block 0's input (the embedding) is
             # never in it. A probed input slice, where one exists, is the same tensor.
             states = recipient_states[int(layer)].float()
             r_norm, r_proj = states.norm(dim=-1), states @ _unit(direction)
@@ -2696,7 +2696,7 @@ def calibrate_register_match(trace, *, step: int, natural_layers,
             alpha_vs_recipient_max=abs(target.alpha) / max(proj_max, 1e-9),
             target_norm_percentile=float((r_norm < target.norm).float().mean() * 100),
             # How far OUTSIDE the recipient's clean distribution, in robust units (median
-            # absolute deviations from the median) -- a scale on which "unusually large"
+            # absolute deviations from the median), a scale on which "unusually large"
             # has a size, not only a yes or no.
             norm_robust_z=(target.norm - m) / max(float((r_norm - m).abs().median()), 1e-9),
             alpha_robust_z=((target.alpha - float(r_proj.median()))
@@ -2705,7 +2705,7 @@ def calibrate_register_match(trace, *, step: int, natural_layers,
             perturbation_vs_median=((sum(edits) / len(edits)) / m) if edits else float("nan"),
             projection_only_norm_ratio=((sum(alone) / len(alone)) / m) if alone
             else float("nan"))
-        # Beyond anything a clean token holds at this block -- in norm, or along v*.
+        # Beyond anything a clean token holds at this block, in norm, or along v*.
         row["norm_unusually_large"] = bool(row["norm_vs_recipient_max"] > 1.0)
         row["projection_unusually_large"] = bool(row["alpha_vs_recipient_max"] > 1.0)
         row["unusually_large"] = bool(row["norm_unusually_large"]
@@ -2739,16 +2739,16 @@ def maintenance_summary(rows: Sequence[Dict[str, Any]], baseline: Sequence[Dict[
     Four things per condition, each against the clean natural register over
     ``reference_layers`` (its plateau) as the reference:
 
-    - **alignment** -- carrier cos(x, v*) at block outputs inside the window;
-    - **norm** -- carrier norm / that block's median, inside the window;
-    - **attention-sink behaviour** -- carrier sink strength, and the share of window
+    - **alignment**, carrier cos(x, v*) at block outputs inside the window;
+    - **norm**, carrier norm / that block's median, inside the window;
+    - **attention-sink behaviour**, carrier sink strength, and the share of window
       blocks where the carriers are sinks;
-    - **persistence** -- after the window, how many consecutive blocks keep at least
+    - **persistence**, after the window, how many consecutive blocks keep at least
       ``persist_fraction`` of the excess over clean the carriers had at the window's last
       block, for the v* projection, the norm ratio and the sink strength separately.
       Nothing is hooked there, so maintenance guarantees none of it.
 
-    Reads block OUTPUTS -- what survives each block's own processing, which is where a
+    Reads block OUTPUTS, what survives each block's own processing, which is where a
     register-sized norm could matter if it steadies v* against a block's writes. The
     sink readout of a block is the attention computed INSIDE it, on the maintained input.
     """
@@ -2819,7 +2819,7 @@ def maintenance_profile(rows: Sequence[Dict[str, Any]], baseline: Sequence[Dict[
     Two readings of every window block, because they answer different questions:
     what the operator WROTE at the block's input (its :class:`EditRecord`, which the
     operator controls) and what the block HANDED ON at its output (which it does not).
-    Past the window only the second exists -- that is persistence. The clean run's
+    Past the window only the second exists, that is persistence. The clean run's
     value at every block is beside it, since "excess over clean" is the only reading
     that means anything after an early window, where the natural register forms anyway.
     """
@@ -2864,20 +2864,19 @@ def maintenance_profile(rows: Sequence[Dict[str, Any]], baseline: Sequence[Dict[
     return out
 
 
-# ========================== suppression judged by what each block RECEIVES (Q1-informed)
+# ========================== suppression judged by what each block RECEIVES
 @dataclass(frozen=True)
 class BlockBars:
     """What "carrying the register state" means at one (denoising step, block OUTPUT).
 
-    Read from the CLEAN run of the same generation, with Q1's definitions: a token is
-    **v*-aligned** when its ``cos(x, v*)`` reaches the ``alignment_quantile`` of the
-    ORDINARY tokens at this block (neither frozen carriers nor high-norm), and it meets
-    the **register criterion** when it is also high-norm (``norm >= highnorm_ratio x
-    median``). ``above_bar`` lists every clean token already over the alignment bar -- the
-    frozen carriers and the ordinary tail the quantile leaves -- so a treated token is
-    called NEW only when the paired clean run did not have it there. Q1 could not prove
-    that novelty ("another carrier wins, novelty unproven"); a paired per-block reference
-    can.
+    Read from the CLEAN run of the same generation: a token is **v*-aligned** when its
+    ``cos(x, v*)`` reaches the ``alignment_quantile`` of the ORDINARY tokens at this block
+    (neither frozen carriers nor high-norm), and it meets the **register criterion** when
+    it is also high-norm (``norm >= highnorm_ratio x median``). ``above_bar`` lists every
+    clean token already over the alignment bar, the frozen carriers and the ordinary tail
+    the quantile leaves, so a treated token is called NEW only when the paired clean run
+    did not have it there. Without a paired per-block reference, novelty cannot be
+    told apart from another carrier taking over.
     """
 
     step: int
@@ -2927,7 +2926,7 @@ class CleanStateReference:
 
     ``at(step, layer)`` describes block ``layer``'s OUTPUT; ``for_input_of(step, layer)``
     describes what arrives at block ``layer``'s INPUT, which is the previous block's
-    output -- the tensor a ``BLOCK_INPUT`` hook edits. A step that was not recorded falls
+    output, the tensor a ``BLOCK_INPUT`` hook edits. A step that was not recorded falls
     back to the nearest recorded step at the same block, and the bars say which step
     they came from (``BlockBars.step``) so a fallback is visible.
     """
@@ -3026,11 +3025,11 @@ class AlignmentRule:
       bar lets exactly those escape.
     - **a fixed, clean-referenced bar.** A percentile of the edited tensor always selects
       its share of tokens, register or not; a bar read from the clean run selects only
-      what is more aligned than any ordinary token there -- ~0.1% of ordinary tokens at
+      what is more aligned than any ordinary token there, ~0.1% of ordinary tokens at
       the default quantile, plus the carriers. 4.4 audits that count on the clean run.
-    - **it follows the state wherever it goes.** Q1 found that removing the register at
-      its original positions is followed, in most runs, by another token becoming the
-      carrier. A frozen mask would leave that new carrier untouched.
+    - **it follows the state wherever it goes.** Removing the register at its original
+      positions is followed, in most runs, by another token becoming the carrier. A
+      frozen mask would leave that new carrier untouched.
     """
 
     reference: CleanStateReference
@@ -3070,24 +3069,24 @@ class AlignmentRule:
 def received_state_rows(trace, sites: Sequence[SuppressionSite], reference: CleanStateReference,
                         *, step: int, layers: Sequence[int],
                         carriers: Sequence[int]) -> List[Dict[str, Any]]:
-    r"""(a) The v* state each block RECEIVED at its input -- the suppression test itself.
+    r"""(a) The v* state each block RECEIVED at its input, the suppression test itself.
 
     Direct residual-state measurement, at every block in ``layers``:
 
     - at a HOOKED block, the suppressor's own measurement of the tensor it handed on
       (:class:`SuppressionSite` ``received_*``), taken after the edit;
-    - at an UNHOOKED block -- the one after the terminal cleanup, say -- the previous
+    - at an UNHOOKED block (the one after the terminal cleanup, say) the previous
       block's output, which is exactly what it receives.
 
     ``received_n_register_like`` counts tokens more v*-aligned than EVERY ordinary token
     of the paired clean run at that input. Zero at every consuming block is what "the
     natural v* state was suppressed" means here. ``received_max_cosine_vs_natural`` is
     how close the most aligned token a block received came to the natural register, as
-    a share of the clean carriers' alignment there -- the continuous version of the same
+    a share of the clean carriers' alignment there, the continuous version of the same
     question. Neither says anything about attention sinks, which are (c): a non-register
     sink that remains does not put a v* state back into the stream.
 
-    ``register_like_before_hook`` is what the previous block HANDED ON -- regrowth, which
+    ``register_like_before_hook`` is what the previous block HANDED ON, regrowth, which
     the hook then removed. It is (b)'s business and reported here only for context.
     ``received_n_above_bar`` counts against the (lower) removal bar, for reference.
     """
@@ -3143,7 +3142,7 @@ def received_state_summary(rows: Sequence[Dict[str, Any]], *, interval: Window,
     """(a), summarised for one step: did any consuming block receive a v*-aligned token?
 
     The interval, its terminal cleanup, and the first UNHOOKED block after it are read
-    separately -- the last one is the only consuming site no hook protects.
+    separately, the last one is the only consuming site no hook protects.
     """
     measured = [r for r in rows if isinstance(r.get("received_n_register_like"), int)]
     inside = [r for r in measured if interval.first <= r["layer"] <= interval.last]
@@ -3159,7 +3158,7 @@ def received_state_summary(rows: Sequence[Dict[str, Any]], *, interval: Window,
         result = "v* state received inside the interval"
     elif boundary_leak:
         # The interval and its cleanup held; the block after it received a state its
-        # predecessor rebuilt from a cleaned input -- regrowth AFTER the interval.
+        # predecessor rebuilt from a cleaned input, regrowth AFTER the interval.
         result = "v* state received after the interval"
     else:
         result = "no v*-aligned state received"
@@ -3202,16 +3201,16 @@ def regrowth_relocation_rows(trace, reference: CleanStateReference, *, step: int
     r"""(b) At every block OUTPUT: did the ORIGINAL carriers come back, and did the state
     appear SOMEWHERE ELSE?
 
-    Kept apart because Q1 found both after removal -- the original carriers regaining the
-    register criterion in about a third of runs, another carrier winning in most of the
-    rest -- and a single "regrowth" count cannot tell them apart. A block's output is what
-    the next hook sees and removes, so this is what the model rebuilt, not what was
-    consumed; (a) is the consumption test.
+    Kept apart because removal can be followed either by the original carriers regaining
+    the register criterion, or by another carrier winning instead, and a single
+    "regrowth" count cannot tell them apart. A block's output is what the next hook sees
+    and removes, so this is what the model rebuilt, not what was consumed; (a) is the
+    consumption test.
 
     "Aligned" means more v*-aligned than every ordinary token of the paired clean run at
     this (step, block). "New" means aligned here, not an original carrier, and not a
-    register-like token of the clean run at this same position -- novelty relative to
-    clean, which Q1 could not establish. The register criterion adds Q1's norm bar.
+    register-like token of the clean run at this same position, novelty relative to
+    clean. The register criterion adds the norm bar.
     """
     frozen = {int(t) for t in carriers}
     rows: List[Dict[str, Any]] = []
@@ -3266,7 +3265,7 @@ def regrowth_relocation_summary(rows: Sequence[Dict[str, Any]], *,
     blocks = sorted(per_position.values())
     first_new = next((r["layer"] for r in inside if r["new_register_criterion"] > 0), None)
     first_regained = regained[0] if regained else None
-    # Q1's outcome vocabulary, with novelty now established against the paired clean run.
+    # Novelty is established against the paired clean run.
     if first_regained is not None and (first_new is None or first_regained <= first_new):
         outcome = "original carriers regain the register criterion"
     elif first_new is not None:
@@ -3295,7 +3294,7 @@ def attention_relocation_rows(trace, reference: CleanStateReference, *, step: in
                               diffuse_ratio: float = 0.5) -> List[Dict[str, Any]]:
     r"""(c) Per head: does its clean sink persist, and if not, where did its attention go?
 
-    Q1's two panels, per (step, block): the share of heads whose strongest image key is
+    Two panels, per (step, block): the share of heads whose strongest image key is
     still the clean one (all heads, and the AFFECTED heads whose clean sink was an
     original carrier), and the strongest incoming share (concentration) against clean.
     Every affected head is then classed by where its attention went:
@@ -3304,17 +3303,17 @@ def attention_relocation_rows(trace, reference: CleanStateReference, *, step: in
     ``other_original_carrier``  another token of the original carrier population;
     ``relocated_vstar_carrier`` a token that carried a NEW v*-aligned state into this
                                 block (above every clean ordinary token at its input, and
-                                not register-like there in clean) -- whether or not a hook
+                                not register-like there in clean), whether or not a hook
                                 then stripped it, so sinkhood that survives the stripping
                                 is visible;
     ``clean_register_elsewhere`` a token that is register-like at this input in the CLEAN
-                                run but is not one of ``carriers`` -- the natural register at
+                                run but is not one of ``carriers``, the natural register at
                                 a position the carrier set does not name (at a denoising step
                                 other than the one the set was read at, say). Without this
                                 class such a head was called ``non_register_token``;
     ``non_register_token``      anything else: a sink that is not a v* carrier;
     ``spread_out``              the head's strongest share fell below ``diffuse_ratio`` of
-                                its clean value -- no single anchor took over.
+                                its clean value, no single anchor took over.
 
     A non-register sink is a finding about routing. It does not put the v* state back
     into the stream and does not, by itself, contradict (a).
@@ -3409,7 +3408,7 @@ def induction_written(records: Sequence[EditRecord], target, *, window: Window,
     ``target(record)`` returns ``(alpha_target, norm_target)`` for one write, ``norm_target``
     ``None`` when only the projection is controlled (the direction-only arm). One row per
     step: how many writes, how many were within ``tolerance`` on every controlled number,
-    and the worst relative error -- so "established at every step" is read off the
+    and the worst relative error, so "established at every step" is read off the
     records rather than assumed from the schedule.
     """
     by_step: Dict[int, List[float]] = {}
@@ -3437,7 +3436,7 @@ def measured_formation_onset(baseline_rows: Sequence[Dict[str, Any]], *, natural
                              fraction: float = 0.5) -> Dict[str, Any]:
     r"""Where does the natural register actually FORM on this run?
 
-    The first block whose OUTPUT carries at least ``fraction`` of the clean plateau -- the
+    The first block whose OUTPUT carries at least ``fraction`` of the clean plateau, the
     block whose feed-forward wrote it. Read from the clean trajectory rather than from the
     artifact's declared writer range, which is fitted over a prompt population.
     """
@@ -3513,7 +3512,7 @@ def lifecycle_schedule(*, n_layers: int, formation_onset: int, natural_end: int,
     - **late** (D) is the replacement, placed AFTER the suppressed interval AND its
       terminal cleanup, so no block carries both a suppression hook and an induction
       hook. C's extension and D's replacement are separate windows, each where its own
-      logic puts it -- not forced into one three-block slot.
+      logic puts it, not forced into one three-block slot.
     """
     notes: List[str] = []
     early_w = Window("early", int(early[0]), int(early[1])) if early else None
@@ -3557,27 +3556,27 @@ def lifecycle_schedule(*, n_layers: int, formation_onset: int, natural_end: int,
 
 def schedule_conflicts(induction_layers: Sequence[int],
                        suppression_hooks: Sequence[int]) -> List[int]:
-    """Blocks where one condition would both suppress and induce -- they would fight."""
+    """Blocks where one condition would both suppress and induce, they would fight."""
     return sorted(set(int(l) for l in induction_layers) & set(int(l) for l in suppression_hooks))
 
 
 # ============================ the induction SITE: block input vs the feed-forward's input
 def transplant_edit(tokens: Sequence[int], source_states, direction: torch.Tensor, *,
                     scale: str = "recipient", records: Optional[List[EditRecord]] = None):
-    r"""Replace each token's vector at the hooked site with a SOURCE state (Q4's transfer).
+    r"""Replace each token's vector at the hooked site with a SOURCE state (a transfer).
 
     ``source_states`` is ``{token: [C]}`` or ``{step: {token: [C]}}``; a step or token
     without a source is left alone. ``scale='recipient'`` keeps the recipient's own norm,
-    so only the direction transfers -- which is all that survives a LayerNorm without
+    so only the direction transfers, which is all that survives a LayerNorm without
     affine parameters, as at FLUX's and PixArt's feed-forward input, and makes the edit
     as small as the transfer allows. ``'none'`` copies the vector as is.
 
     At ``PRE_MLP_RESIDUAL`` on FLUX dual blocks (and PixArt) the hook sits on ``norm2``'s
-    input: it changes what the feed-forward READS and nothing else -- the residual stream
+    input: it changes what the feed-forward READS and nothing else, the residual stream
     that continues past the block is untouched, so whatever changes downstream is what
-    the feed-forward WROTE from that input. That is the writer computation Q4 found
-    decisive at the writer block, and why this is a different intervention from writing
-    a state into the block input.
+    the feed-forward WROTE from that input. That is the writer computation at the writer
+    block, and why this is a different intervention from writing a state into the block
+    input.
     """
     per_step = any(isinstance(value, Mapping) for value in source_states.values())
     wanted = [int(t) for t in tokens]
@@ -3671,7 +3670,7 @@ def site_pilot_rows(trace, clean, *, step: int, layers: Sequence[int],
     """The post-block state and sink behaviour of one site-pilot arm, block by block.
 
     ``write_along_vstar`` is how much the block itself added to the carriers' v*
-    projection (output minus input), against clean -- the quantity that says whether a
+    projection (output minus input), against clean, the quantity that says whether a
     block's feed-forward WROTE a register-like state, which a block-input edit and a
     feed-forward-input edit produce by different routes.
     """
@@ -3711,7 +3710,7 @@ def register_test_counts(reference: CleanStateReference, *, step: int,
                          carriers: Optional[Sequence[int]] = None) -> Dict[int, int]:
     r"""Per block OUTPUT: how many tokens pass the register test in the clean run.
 
-    The register test is Q1's criterion, the one every table here uses: norm at least
+    The register test is the criterion every table here uses: norm at least
     ``highnorm_ratio`` x the block's median AND alignment with v* above the
     ``alignment_quantile`` of that block's ordinary tokens. With ``carriers`` only those
     positions are counted; without them every token is, a count that needs no carrier
@@ -3737,7 +3736,7 @@ def measured_formation_by_count(counts: Mapping[int, int], *,
 
     Half-maximum is the usual onset convention for a rise. On FLUX.1-dev the population
     jumps from a handful of tokens to its plateau in one block (the writer), so every
-    fraction between roughly 0.1 and 0.9 names the same block -- which the range check
+    fraction between roughly 0.1 and 0.9 names the same block, which the range check
     (:func:`threshold_sensitivity`) reports rather than asserts.
     """
     series = sorted((int(l), int(c)) for l, c in counts.items())
@@ -3795,7 +3794,7 @@ def threshold_sensitivity(trace, *, step: int, layers: Sequence[int],
     r"""Does any conclusion depend on the exact value of the three shared thresholds?
 
     Each threshold is moved over a range with the other two held at their chosen values,
-    and the quantities it decides are re-measured on the SAME clean run -- no new
+    and the quantities it decides are re-measured on the SAME clean run, no new
     generation. A value that sits on a plateau of these curves is defensible without an
     argument about why that value: the answer does not change around it.
 

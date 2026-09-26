@@ -364,8 +364,9 @@ def run_flux(cfg: ExperimentConfig) -> Dict[str, BlockCapture]:
     add_block_hooks(transformer.single_transformer_blocks, "single", cfg.single_blocks)
     # Force eager attention probabilities if supported.
     if hasattr(transformer, "set_attn_processor"):
-        # Native processors do not expose probabilities; request attention output tensors from PyTorch SDPA is impossible.
-        # Users with the older notebook processor can swap it here. We fail loudly if no attention was captured.
+        # Native attention processors do not expose probabilities through a forward
+        # hook. Install a processor here that records attention weights, key and
+        # value on rec.attn_img2img/key/value; missing captures raise below.
         pass
     def cb(pipe, step_index, timestep, callback_kwargs):
         store.current_timestep_index = int(step_index); store.current_timestep_value = float(timestep) if torch.is_tensor(timestep) else float(timestep)
